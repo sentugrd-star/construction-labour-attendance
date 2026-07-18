@@ -1,0 +1,14 @@
+{
+  "name": "Construction Labour Attendance",
+  "short_name": "CLA Attendance",
+  "description": "Digital site attendance register for labour, contractors and projects.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12161A",
+  "theme_color": "#12161A",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
