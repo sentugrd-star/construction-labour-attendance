@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12161A">
+<title>SENTU Attendance</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+/* ===================== DESIGN TOKENS ===================== */
+:root{
+  --bg:#12161A; --bg-elev:#1B2127; --surface:#232B33; --surface-2:#2A333C;
+  --border:#333E48; --text:#E8EDF2; --text-muted:#8D9AA6;
+  --accent:#F2A93B; --accent-strong:#E0891B; --accent-2:#3E8FA3;
+  --success:#3FA66B; --danger:#D14343; --warn:#E0891B; --leave:#7C6FD1;
+  --radius:10px; --radius-lg:16px;
+  --font-display:'Oswald',sans-serif; --font-body:'Inter',sans-serif; --font-mono:'IBM Plex Mono',monospace;
+  --shadow:0 4px 16px rgba(0,0,0,.35);
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+[data-theme="light"]{
+  --bg:#F1EDE4; --bg-elev:#FFFFFF; --surface:#FFFFFF; --surface-2:#F6F3EC;
+  --border:#DAD3C3; --text:#1C2126; --text-muted:#63707B;
+  --accent:#C97A12; --accent-strong:#A9660E; --accent-2:#205C6E;
+  --success:#2E7D4F; --danger:#B13030; --warn:#B36A0F; --leave:#5B4FBF;
+  --shadow:0 4px 16px rgba(20,20,10,.10);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);}
+body{overscroll-behavior-y:none;}
+h1,h2,h3,.display{font-family:var(--font-display);text-transform:uppercase;letter-spacing:.03em;margin:0;}
+.mono{font-family:var(--font-mono);}
+button,input,select,textarea{font-family:inherit;color:inherit;}
+::placeholder{color:var(--text-muted);opacity:.8;}
+a{color:var(--accent-2);}
+.hidden{display:none !important;}
+#app{max-width:560px;margin:0 auto;min-height:100vh;position:relative;background:var(--bg);display:flex;flex-direction:column;}
+
+/* ===================== LOGIN ===================== */
+#screen-login{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:32px 24px;background:
+  radial-gradient(circle at 20% 0%, rgba(242,169,59,.14), transparent 55%), var(--bg);}
+.login-brand{text-align:center;margin-bottom:36px;}
+.login-brand .stamp-logo{width:72px;height:72px;margin:0 auto 14px;border-radius:50%;border:3px solid var(--accent);
+  display:flex;align-items:center;justify-content:center;transform:rotate(-6deg);color:var(--accent);
+  font-family:var(--font-display);font-size:26px;font-weight:700;}
+.login-brand h1{font-size:26px;color:var(--text);}
+.login-brand p{color:var(--text-muted);margin-top:6px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;}
+.role-grid{display:flex;flex-direction:column;gap:12px;}
+.role-btn{display:flex;align-items:center;gap:14px;padding:16px;border-radius:var(--radius-lg);border:1px solid var(--border);
+  background:var(--surface);cursor:pointer;text-align:left;}
+.role-btn .ic{width:44px;height:44px;border-radius:10px;background:var(--surface-2);display:flex;align-items:center;
+  justify-content:center;font-size:20px;flex-shrink:0;}
+.role-btn b{display:block;font-size:15px;}
+.role-btn span{display:block;color:var(--text-muted);font-size:12px;margin-top:2px;}
+.role-btn.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+.login-name{margin-top:20px;}
+.login-cta{margin-top:26px;}
+
+/* ===================== TOPBAR ===================== */
+.topbar{position:sticky;top:0;z-index:20;background:var(--bg-elev);border-bottom:1px solid var(--border);
+  padding:14px 16px calc(14px + var(--safe-t,0px));display:flex;align-items:center;gap:10px;}
+.topbar .back-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;flex-shrink:0;}
+.topbar .titles{flex:1;min-width:0;}
+.topbar h2{font-size:18px;line-height:1.1;}
+.topbar .sub{font-size:11px;color:var(--text-muted);margin-top:2px;text-transform:none;letter-spacing:0;}
+.role-badge{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;
+  border-radius:999px;background:rgba(242,169,59,.15);color:var(--accent);border:1px solid rgba(242,169,59,.4);flex-shrink:0;}
+
+/* ===================== MAIN / NAV ===================== */
+#content{flex:1;padding:14px 14px calc(90px + var(--safe-b));}
+.bottomnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:560px;
+  background:var(--bg-elev);border-top:1px solid var(--border);display:flex;padding:6px 4px calc(6px + var(--safe-b));
+  z-index:30;}
+.navbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 2px;border-radius:10px;
+  background:transparent;border:none;cursor:pointer;color:var(--text-muted);font-size:10px;font-weight:600;
+  letter-spacing:.02em;}
+.navbtn .navic{font-size:19px;}
+.navbtn.active{color:var(--accent);}
+.navbtn.active .navic{transform:translateY(-1px);}
+.more-sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:560px;background:var(--bg-elev);
+  border-top:1px solid var(--border);border-radius:18px 18px 0 0;z-index:40;padding:10px 10px calc(16px + var(--safe-b));
+  box-shadow:0 -8px 30px rgba(0,0,0,.4);}
+.more-sheet .grabber{width:40px;height:4px;background:var(--border);border-radius:99px;margin:6px auto 14px;}
+.more-item{display:flex;align-items:center;gap:14px;padding:13px 8px;border-radius:10px;cursor:pointer;}
+.more-item:active{background:var(--surface);}
+.more-item .ic{width:36px;height:36px;border-radius:9px;background:var(--surface-2);display:flex;align-items:center;
+  justify-content:center;font-size:17px;flex-shrink:0;}
+.more-item b{font-size:14px;font-weight:600;}
+
+/* ===================== GENERIC UI ===================== */
+.page-title{margin-bottom:14px;}
+.page-title h2{font-size:20px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:12px;}
+.section-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);
+  margin:4px 0 8px;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:5px;
+  text-transform:uppercase;letter-spacing:.03em;}
+.input,.select,textarea.input{width:100%;padding:12px 12px;border-radius:9px;border:1px solid var(--border);
+  background:var(--bg-elev);color:var(--text);font-size:15px;}
+.input:focus,.select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:0;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 16px;border-radius:10px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text);font-weight:600;font-size:14px;
+  cursor:pointer;width:100%;}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#181205;}
+.btn-outline{background:transparent;border-color:var(--accent);color:var(--accent);}
+.btn-danger{background:transparent;border-color:var(--danger);color:var(--danger);}
+.btn-sm{padding:9px 12px;font-size:13px;width:auto;}
+.btn-row{display:flex;gap:10px;}
+.btn-row .btn{flex:1;}
+.fab{position:fixed;right:16px;bottom:calc(84px + var(--safe-b));width:54px;height:54px;border-radius:50%;
+  background:var(--accent);color:#181205;border:none;font-size:26px;box-shadow:var(--shadow);cursor:pointer;
+  z-index:25;max-width:560px;}
+
+.searchbar{display:flex;align-items:center;gap:8px;background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:10px;padding:10px 12px;margin-bottom:10px;}
+.searchbar input{flex:1;border:none;background:transparent;font-size:14px;outline:none;color:var(--text);}
+.chiprow{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;}
+.chip{flex-shrink:0;padding:7px 13px;border-radius:999px;background:var(--surface);border:1px solid var(--border);
+  font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer;white-space:nowrap;}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#181205;}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;}
+.stat-card .n{font-family:var(--font-mono);font-size:24px;font-weight:600;}
+.stat-card .l{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}
+.stat-card.present .n{color:var(--success);} .stat-card.absent .n{color:var(--danger);}
+.stat-card.half .n{color:var(--warn);} .stat-card.leave .n{color:var(--leave);}
+
+/* stamp badges - signature element */
+.stamp{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;
+  border:2px solid currentColor;font-family:var(--font-display);font-weight:700;font-size:12px;flex-shrink:0;
+  transform:rotate(-4deg);}
+.stamp.P{color:var(--success);} .stamp.A{color:var(--danger);} .stamp.H{color:var(--warn);} .stamp.L{color:var(--leave);}
+.status-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.status-opt{border:2px solid var(--border);border-radius:10px;padding:10px 4px;text-align:center;cursor:pointer;background:var(--bg-elev);}
+.status-opt .stamp{margin:0 auto 4px;}
+.status-opt span{display:block;font-size:11px;font-weight:600;color:var(--text-muted);}
+.status-opt.sel{border-color:currentColor;background:var(--surface-2);}
+.status-opt.sel.P{color:var(--success);} .status-opt.sel.A{color:var(--danger);}
+.status-opt.sel.H{color:var(--warn);} .status-opt.sel.L{color:var(--leave);}
+
+.list-row{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:11px 12px;margin-bottom:8px;}
+.avatar{width:38px;height:38px;border-radius:9px;background:var(--surface-2);display:flex;align-items:center;
+  justify-content:center;font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--accent-2);flex-shrink:0;}
+.list-row .meta{flex:1;min-width:0;}
+.list-row .meta b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.list-row .meta .sub{font-size:11.5px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.list-row .id-tag{font-family:var(--font-mono);font-size:10.5px;background:var(--surface-2);padding:2px 6px;border-radius:5px;color:var(--text-muted);}
+.row-actions{display:flex;gap:6px;flex-shrink:0;}
+.icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg-elev);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--text-muted);}
+.icon-btn.danger{color:var(--danger);border-color:rgba(209,67,67,.4);}
+
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:700;
+  background:var(--surface-2);color:var(--accent-2);border:1px solid var(--border);text-transform:uppercase;letter-spacing:.02em;}
+.badge.status-Active{color:var(--success);} .badge.status-Inactive{color:var(--danger);}
+
+.empty-state{text-align:center;padding:50px 20px;color:var(--text-muted);}
+.empty-state .ic{font-size:38px;margin-bottom:10px;}
+.empty-state b{display:block;color:var(--text);margin-bottom:4px;font-size:15px;}
+.empty-state p{font-size:13px;margin:0;}
+
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;border-bottom:1px solid var(--border);}
+.tab{flex-shrink:0;padding:10px 14px;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;
+  border-bottom:2px solid transparent;white-space:nowrap;}
+.tab.active{color:var(--accent);border-color:var(--accent);}
+
+table.data-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.data-table th{text-align:left;padding:8px 6px;color:var(--text-muted);font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.03em;border-bottom:1px solid var(--border);white-space:nowrap;}
+table.data-table td{padding:9px 6px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid var(--border);margin-bottom:12px;}
+
+/* selected labour card in attendance entry */
+.sel-labour{display:flex;align-items:center;gap:12px;background:var(--surface-2);border:1px dashed var(--accent);
+  border-radius:12px;padding:12px;margin-bottom:14px;}
+.sel-labour .meta b{font-size:15px;} 
+.result-list{position:relative;}
+.result-drop{background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;margin-top:-4px;margin-bottom:12px;
+  max-height:260px;overflow-y:auto;}
+.result-item{padding:11px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center;}
+.result-item:last-child{border-bottom:none;}
+.result-item b{font-size:13.5px;}
+.result-item .sub{font-size:11px;color:var(--text-muted);}
+
+/* modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:flex;align-items:flex-end;
+  justify-content:center;}
+.modal{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg-elev);border-radius:18px 18px 0 0;
+  padding:18px 18px calc(22px + var(--safe-b));}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.modal-head h3{font-size:17px;}
+.modal-close{width:32px;height:32px;border-radius:8px;background:var(--surface);border:1px solid var(--border);
+  cursor:pointer;font-size:16px;color:var(--text-muted);}
+
+/* toast */
+.toast{position:fixed;bottom:calc(96px + var(--safe-b));left:50%;transform:translateX(-50%);background:var(--accent);
+  color:#181205;padding:11px 18px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:var(--shadow);
+  z-index:80;opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;max-width:90%;text-align:center;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+.switch{position:relative;width:46px;height:26px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch .track{position:absolute;inset:0;background:var(--border);border-radius:999px;cursor:pointer;transition:.2s;}
+.switch .track:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;
+  border-radius:50%;transition:.2s;}
+.switch input:checked + .track{background:var(--accent);}
+.switch input:checked + .track:before{transform:translateX(20px);}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);}
+.setting-row:last-child{border-bottom:none;}
+.setting-row b{display:block;font-size:14px;}
+.setting-row .d{font-size:11.5px;color:var(--text-muted);margin-top:2px;}
+
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.dash-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 14px;
+  cursor:pointer;display:flex;flex-direction:column;gap:8px;}
+.dash-tile .ic{width:38px;height:38px;border-radius:10px;background:var(--surface-2);display:flex;align-items:center;
+  justify-content:center;font-size:18px;color:var(--accent);}
+.dash-tile b{font-size:13.5px;font-weight:600;}
+
+/* face recognition */
+.cam-wrap{position:relative;width:100%;aspect-ratio:3/4;background:#000;border-radius:var(--radius-lg);overflow:hidden;margin-bottom:12px;border:1px solid var(--border);}
+.cam-wrap video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
+.cam-wrap canvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);}
+.cam-status{position:absolute;left:0;right:0;bottom:0;padding:10px 12px;background:linear-gradient(0deg,rgba(0,0,0,.75),transparent);
+  color:#fff;font-size:13px;font-weight:600;text-align:center;}
+.cam-status.match{color:#7CE8A4;}
+.face-enroll-row{display:flex;align-items:center;gap:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;}
+.face-enroll-row .fe-thumb{width:44px;height:44px;border-radius:10px;background:var(--bg-elev);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.face-enroll-row.enrolled .fe-thumb{color:var(--success);}
+.scan-recent{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== LOGIN / SIGNUP SCREEN ===================== -->
+  <div id="screen-login">
+    <div class="login-brand">
+      <div class="stamp-logo">SA</div>
+      <h1>SENTU<br>Attendance</h1>
+      <p>Site register, digitized</p>
+    </div>
+
+    <div class="tabs" style="margin-bottom:18px;">
+      <div class="tab active" id="tab-login" onclick="switchAuthTab('login')" style="flex:1;text-align:center;">Login</div>
+      <div class="tab" id="tab-signup" onclick="switchAuthTab('signup')" style="flex:1;text-align:center;">Sign Up</div>
+    </div>
+
+    <div id="auth-error" class="hidden" style="background:rgba(209,67,67,.12);border:1px solid var(--danger);color:var(--danger);
+      padding:10px 12px;border-radius:9px;font-size:12.5px;margin-bottom:14px;"></div>
+
+    <!-- LOGIN FORM -->
+    <div id="form-login">
+      <div class="field"><label>Email</label><input class="input" id="li-email" type="email" placeholder="you@example.com" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input class="input" id="li-password" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="btn btn-primary" id="login-btn" onclick="doLoginAuth()">Login</button>
+    </div>
+
+    <!-- SIGN UP FORM -->
+    <div id="form-signup" class="hidden">
+      <div class="field"><label>Your Name</label><input class="input" id="su-name" placeholder="e.g. Sentu Kumar"></div>
+      <div class="field"><label>Email</label><input class="input" id="su-email" type="email" placeholder="you@example.com" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input class="input" id="su-password" type="password" placeholder="At least 6 characters" autocomplete="new-password"></div>
+      <div class="section-label">Requested Role</div>
+      <div class="role-grid" id="role-grid" style="margin-bottom:14px;"></div>
+      <button class="btn btn-primary" id="signup-btn" onclick="doSignUp()">Request Access</button>
+      <p style="font-size:11.5px;color:var(--text-muted);text-align:center;margin-top:10px;">
+        First person to sign up becomes Admin automatically.<br>Everyone after that needs Admin approval to log in.</p>
+    </div>
+  </div>
+
+  <!-- ===================== PENDING APPROVAL SCREEN ===================== -->
+  <div id="screen-pending" class="hidden" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+    align-items:center;padding:32px 24px;text-align:center;">
+    <div class="stamp-logo" style="margin-bottom:18px;">⏳</div>
+    <h2 style="font-size:20px;margin-bottom:10px;">Waiting for Admin Approval</h2>
+    <p style="color:var(--text-muted);font-size:13.5px;max-width:320px;margin-bottom:24px;">
+      Your account request has been sent. You'll be able to log in as soon as an Admin approves your access.</p>
+    <button class="btn" style="max-width:220px;" onclick="firebaseLogout()">Back to Login</button>
+  </div>
+
+  <!-- ===================== MAIN SCREEN ===================== -->
+  <div id="screen-main" class="hidden" style="display:flex;flex-direction:column;min-height:100vh;">
+    <div class="topbar">
+      <button class="back-btn hidden" id="back-btn" onclick="goBack()">‹</button>
+      <div class="titles">
+        <h2 id="topbar-title">Dashboard</h2>
+        <div class="sub" id="topbar-sub"></div>
+      </div>
+      <div class="role-badge" id="topbar-role">ADMIN</div>
+    </div>
+
+    <main id="content"></main>
+
+    <nav class="bottomnav">
+      <button class="navbtn" data-page="dashboard" onclick="navTo('dashboard')"><span class="navic">⌂</span>Home</button>
+      <button class="navbtn" data-page="attendance-entry" onclick="navTo('attendance-entry')"><span class="navic">✎</span>Mark</button>
+      <button class="navbtn" data-page="attendance-list" onclick="navTo('attendance-list')"><span class="navic">☰</span>List</button>
+      <button class="navbtn" data-page="reports" onclick="navTo('reports')"><span class="navic">▤</span>Reports</button>
+      <button class="navbtn" onclick="toggleMore()"><span class="navic">⋯</span>More</button>
+    </nav>
+  </div>
+
+  <div id="fab-holder"></div>
+</div>
+
+<div id="modal-root"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+/* ===================================================================
+   DATA LAYER
+=================================================================== */
+const DBK = {settings:'cla_settings'};
+function loadDB(k, fb){ try{ const v = JSON.parse(localStorage.getItem(k)); return v || fb; }catch(e){ return fb; } }
+function saveDB(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+
+// Shared data now lives in Firestore so every device sees the same records.
+// These arrays are kept in sync live via onSnapshot listeners (see setupDataSync()).
+let LABOUR = [];
+let CONTRACTORS = [];
+let PROJECTS = [];
+let ATTENDANCE = [];
+let WAGE_ADJ = []; // manually entered OT amounts, per labour per month
+let CONTRACTOR_PAYMENTS = []; // payments made to contractors
+let SETTINGS = loadDB(DBK.settings, {theme:'dark', role:null, userName:''});
+
+function persist(which){
+  // Only 'settings' (per-device preference like dark mode) stays in localStorage.
+  if(which==='settings') saveDB(DBK.settings, SETTINGS);
+}
+
+let dataListeners = [];
+function setupDataSync(){
+  dataListeners.forEach(unsub=>unsub());
+  dataListeners = [];
+  const bind = (col, setArr) => db.collection(col).onSnapshot(snap=>{
+    setArr(snap.docs.map(d=>d.data()));
+    render();
+  }, err=>console.error(col, err));
+  dataListeners.push(bind('labour', arr=>LABOUR=arr));
+  dataListeners.push(bind('contractors', arr=>CONTRACTORS=arr));
+  dataListeners.push(bind('projects', arr=>PROJECTS=arr));
+  dataListeners.push(bind('attendance', arr=>ATTENDANCE=arr));
+  dataListeners.push(bind('wageAdjustments', arr=>WAGE_ADJ=arr));
+  dataListeners.push(bind('contractorPayments', arr=>CONTRACTOR_PAYMENTS=arr));
+}
+function teardownDataSync(){
+  dataListeners.forEach(unsub=>unsub()); dataListeners=[];
+  LABOUR=[]; CONTRACTORS=[]; PROJECTS=[]; ATTENDANCE=[]; WAGE_ADJ=[]; CONTRACTOR_PAYMENTS=[];
+}
+
+const CATEGORIES = ['Mason','Helper','Carpenter','Bar Bender','Electrician','Plumber','Welder','Operator','Painter','Others'];
+const STATUS_META = {
+  P:{label:'Present', color:'var(--success)'}, A:{label:'Absent', color:'var(--danger)'},
+  H:{label:'Half Day', color:'var(--warn)'}, L:{label:'Leave', color:'var(--leave)'}
+};
+const ROLES = [
+  {id:'Admin', ic:'★', desc:'Full access to all masters, entry, reports & settings'},
+  {id:'Site Engineer', ic:'⚙', desc:'Attendance entry, masters, reports & export'},
+  {id:'Supervisor', ic:'⛑', desc:'Attendance entry & viewing reports only'}
+];
+function canEditMasters(){ return SETTINGS.role==='Admin' || SETTINGS.role==='Site Engineer'; }
+function canDeleteMasters(){ return SETTINGS.role==='Admin'; }
+function canSeeSettings(){ return SETTINGS.role==='Admin'; }
+
+function nextId(prefix, arr, pad){
+  let max=0;
+  arr.forEach(x=>{ const n=parseInt((x.id||'').replace(prefix,''),10); if(!isNaN(n) && n>max) max=n; });
+  return prefix + String(max+1).padStart(pad,'0');
+}
+function todayISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmtDate(iso){ if(!iso) return ''; const d=new Date(iso+'T00:00:00'); return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+function labourById(id){ return LABOUR.find(l=>l.id===id); }
+function contractorById(id){ return CONTRACTORS.find(c=>c.id===id); }
+function projectById(id){ return PROJECTS.find(p=>p.id===id); }
+function initials(name){ return (name||'?').trim().split(/\s+/).slice(0,2).map(s=>s[0]).join('').toUpperCase(); }
+
+function showToast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._tm); t._tm=setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ===================================================================
+   FIREBASE INIT
+=================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBKFQOe4CBVboBkFTU3QB6S-wGRnxjdIkA",
+  authDomain: "construction-labour-attendance.firebaseapp.com",
+  projectId: "construction-labour-attendance",
+  storageBucket: "construction-labour-attendance.firebasestorage.app",
+  messagingSenderId: "394307541261",
+  appId: "1:394307541261:web:d172b3ddb3aba435cbf844",
+  measurementId: "G-3931RF1P8Z"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Offline mode: cache data locally so entries work without internet and
+// auto-sync to the cloud the moment connectivity returns.
+db.enablePersistence({ synchronizeTabs: true }).catch(err=>{
+  console.warn('Offline persistence not available:', err.code);
+});
+
+let isOnline = navigator.onLine;
+function updateOnlineBanner(){
+  isOnline = navigator.onLine;
+  let banner = document.getElementById('offline-banner');
+  if(!isOnline){
+    if(!banner){
+      banner = document.createElement('div');
+      banner.id = 'offline-banner';
+      banner.style.cssText = 'background:var(--warn);color:#181205;font-size:12px;font-weight:700;text-align:center;padding:7px;position:sticky;top:0;z-index:25;';
+      banner.textContent = '⚠ Offline — entries will save locally and auto-sync when internet returns';
+      const topbar = document.querySelector('.topbar');
+      if(topbar) topbar.insertAdjacentElement('afterend', banner);
+    }
+  } else if(banner){
+    banner.remove();
+    showToast('Back online — syncing…');
+  }
+}
+window.addEventListener('online', updateOnlineBanner);
+window.addEventListener('offline', updateOnlineBanner);
+
+/* ===================================================================
+   AUTH / LOGIN / SIGN-UP / ADMIN APPROVAL
+=================================================================== */
+let pendingRole = null;
+function renderRoleGrid(){
+  const g=document.getElementById('role-grid');
+  if(!g) return;
+  g.innerHTML = ROLES.map(r=>`
+    <div class="role-btn ${pendingRole===r.id?'active':''}" onclick="pendingRole='${r.id}'; renderRoleGrid();">
+      <div class="ic">${r.ic}</div>
+      <div><b>${r.id}</b><span>${r.desc}</span></div>
+    </div>`).join('');
+}
+renderRoleGrid();
+
+function switchAuthTab(tab){
+  document.getElementById('tab-login').classList.toggle('active', tab==='login');
+  document.getElementById('tab-signup').classList.toggle('active', tab==='signup');
+  document.getElementById('form-login').classList.toggle('hidden', tab!=='login');
+  document.getElementById('form-signup').classList.toggle('hidden', tab!=='signup');
+  document.getElementById('auth-error').classList.add('hidden');
+}
+function showAuthError(msg){
+  const el=document.getElementById('auth-error'); el.textContent=msg; el.classList.remove('hidden');
+}
+
+function doSignUp(){
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const password = document.getElementById('su-password').value;
+  if(!name){ showAuthError('Please enter your name'); return; }
+  if(!pendingRole){ showAuthError('Please select a requested role'); return; }
+  if(!email || !password || password.length<6){ showAuthError('Enter a valid email and a password of at least 6 characters'); return; }
+  document.getElementById('signup-btn').textContent='Please wait…';
+  auth.createUserWithEmailAndPassword(email, password).then(async (cred)=>{
+    const uid = cred.user.uid;
+    // first ever user becomes an auto-approved Admin
+    const countSnap = await db.collection('users').limit(1).get();
+    const isFirstUser = countSnap.empty;
+    await db.collection('users').doc(uid).set({
+      name, email, requestedRole: pendingRole,
+      role: isFirstUser ? 'Admin' : pendingRole,
+      status: isFirstUser ? 'approved' : 'pending',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(isFirstUser ? 'Admin account created!' : 'Request sent for Admin approval');
+  }).catch(err=>{
+    showAuthError(err.message);
+    document.getElementById('signup-btn').textContent='Request Access';
+  });
+}
+
+function doLoginAuth(){
+  const email = document.getElementById('li-email').value.trim();
+  const password = document.getElementById('li-password').value;
+  if(!email || !password){ showAuthError('Enter your email and password'); return; }
+  document.getElementById('login-btn').textContent='Please wait…';
+  auth.signInWithEmailAndPassword(email, password).catch(err=>{
+    showAuthError(err.message);
+    document.getElementById('login-btn').textContent='Login';
+  });
+}
+
+function firebaseLogout(){
+  stopFaceCamera();
+  teardownDataSync();
+  auth.signOut();
+}
+function logout(){ firebaseLogout(); }
+
+function showLoginScreen(){
+  document.getElementById('screen-login').classList.remove('hidden');
+  document.getElementById('screen-pending').classList.add('hidden');
+  document.getElementById('screen-main').classList.add('hidden');
+  document.getElementById('login-btn').textContent='Login';
+  document.getElementById('signup-btn').textContent='Request Access';
+}
+function showPendingScreen(){
+  document.getElementById('screen-login').classList.add('hidden');
+  document.getElementById('screen-pending').classList.remove('hidden');
+  document.getElementById('screen-main').classList.add('hidden');
+}
+function showMainApp(userDoc){
+  SETTINGS.role = userDoc.role; SETTINGS.userName = userDoc.name; SETTINGS.uid = userDoc.uid;
+  persist('settings');
+  applyTheme();
+  setupDataSync();
+  document.getElementById('screen-login').classList.add('hidden');
+  document.getElementById('screen-pending').classList.add('hidden');
+  document.getElementById('screen-main').classList.remove('hidden');
+  document.getElementById('topbar-role').textContent = userDoc.role.toUpperCase();
+  navTo('dashboard');
+  updateOnlineBanner();
+}
+
+auth.onAuthStateChanged(async (user)=>{
+  if(!user){ showLoginScreen(); return; }
+  try{
+    const doc = await db.collection('users').doc(user.uid).get();
+    if(!doc.exists){ showAuthError('Account record not found'); firebaseLogout(); return; }
+    const data = doc.data();
+    if(data.status!=='approved'){ showPendingScreen(); return; }
+    showMainApp({role:data.role, name:data.name, uid:user.uid});
+  }catch(e){
+    showAuthError('Could not verify your account. Check your internet connection.');
+  }
+});
+
+/* ===================================================================
+   THEME
+=================================================================== */
+function applyTheme(){ document.documentElement.setAttribute('data-theme', SETTINGS.theme==='light'?'light':'dark'); }
+applyTheme();
+
+/* ===================================================================
+   ROUTER
+=================================================================== */
+let history_stack = [];
+let currentPage = 'dashboard';
+let editContext = {}; // holds ids being edited
+
+function navTo(page, opts){
+  opts = opts || {};
+  if(currentPage==='face-attendance' && page!=='face-attendance') stopFaceCamera();
+  if(page!==currentPage) history_stack.push(currentPage);
+  currentPage = page;
+  document.getElementById('back-btn').classList.toggle('hidden', history_stack.length===0);
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.page===page));
+  closeMore();
+  render();
+}
+function goBack(){
+  if(currentPage==='face-attendance') stopFaceCamera();
+  if(history_stack.length){ currentPage = history_stack.pop(); }
+  document.getElementById('back-btn').classList.toggle('hidden', history_stack.length===0);
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.page===currentPage));
+  render();
+}
+function setTopbar(title, sub){
+  document.getElementById('topbar-title').textContent = title;
+  document.getElementById('topbar-sub').textContent = sub||'';
+}
+
+/* more sheet */
+function toggleMore(){
+  if(document.getElementById('more-sheet-el')) { closeMore(); return; }
+  const items = [
+    {ic:'🙂', label:'Face Attendance', page:'face-attendance'},
+    {ic:'👷', label:'Labour Master', page:'labour'},
+    {ic:'🏗', label:'Contractor Master', page:'contractor'},
+    {ic:'📍', label:'Project Master', page:'project'},
+    {ic:'💵', label:'Contractor Payments', page:'contractor-payments'},
+    {ic:'✅', label:'User Approvals', page:'approvals', gated:true},
+    {ic:'⚙', label:'Settings', page:'settings', gated:true},
+  ].filter(i=> !i.gated || canSeeSettings());
+  const el = document.createElement('div');
+  el.className='more-sheet'; el.id='more-sheet-el';
+  el.innerHTML = `<div class="grabber"></div>` + items.map(i=>`
+    <div class="more-item" onclick="navTo('${i.page}')"><div class="ic">${i.ic}</div><b>${i.label}</b></div>`).join('') +
+    `<div class="more-item" onclick="logout()"><div class="ic">⎋</div><b>Switch Role / Logout</b></div>`;
+  document.body.appendChild(el);
+  const backdrop=document.createElement('div'); backdrop.className='modal-backdrop'; backdrop.style.background='rgba(0,0,0,.35)';
+  backdrop.id='more-backdrop'; backdrop.onclick=closeMore; backdrop.style.zIndex=39;
+  document.body.appendChild(backdrop);
+}
+function closeMore(){
+  const el=document.getElementById('more-sheet-el'); if(el) el.remove();
+  const bd=document.getElementById('more-backdrop'); if(bd) bd.remove();
+}
+
+/* ===================================================================
+   MODAL SYSTEM
+=================================================================== */
+function openModal(title, bodyHtml, footHtml){
+  closeModal();
+  const bd=document.createElement('div'); bd.className='modal-backdrop'; bd.id='active-modal';
+  bd.onclick=(e)=>{ if(e.target===bd) closeModal(); };
+  bd.innerHTML=`<div class="modal">
+    <div class="modal-head"><h3>${title}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div id="modal-body">${bodyHtml}</div>
+    ${footHtml? `<div style="margin-top:16px">${footHtml}</div>`:''}
+  </div>`;
+  document.body.appendChild(bd);
+}
+function closeModal(){
+  if(enrollStream){ enrollStream.getTracks().forEach(t=>t.stop()); enrollStream=null; }
+  const m=document.getElementById('active-modal'); if(m) m.remove();
+}
+
+/* ===================================================================
+   MAIN RENDER SWITCH
+=================================================================== */
+function render(){
+  const c=document.getElementById('content');
+  document.getElementById('fab-holder').innerHTML='';
+  if(currentPage==='dashboard') return renderDashboard(c);
+  if(currentPage==='attendance-entry') return renderAttendanceEntry(c);
+  if(currentPage==='face-attendance') return renderFaceAttendance(c);
+  if(currentPage==='contractor-payments') return renderContractorPayments(c);
+  if(currentPage==='attendance-list') return renderAttendanceList(c);
+  if(currentPage==='labour') return renderLabourMaster(c);
+  if(currentPage==='contractor') return renderContractorMaster(c);
+  if(currentPage==='project') return renderProjectMaster(c);
+  if(currentPage==='reports') return renderReports(c);
+  if(currentPage==='approvals') return renderApprovals(c);
+  if(currentPage==='settings') return renderSettings(c);
+}
+
+/* ===================================================================
+   DASHBOARD
+=================================================================== */
+function renderDashboard(c){
+  setTopbar('Dashboard', SETTINGS.userName ? ('Welcome, '+SETTINGS.userName) : '');
+  const today = todayISO();
+  const todays = ATTENDANCE.filter(a=>a.date===today);
+  const p = todays.filter(a=>a.status==='P').length;
+  const a = todays.filter(a=>a.status==='A').length;
+  const h = todays.filter(a=>a.status==='H').length;
+  const l = todays.filter(a=>a.status==='L').length;
+  const activeLabour = LABOUR.filter(x=>x.status==='Active').length;
+
+  const tiles = [
+    {ic:'✎', label:'Attendance Entry', page:'attendance-entry'},
+    {ic:'🙂', label:'Face Attendance', page:'face-attendance'},
+    {ic:'👷', label:'Labour Master', page:'labour'},
+    {ic:'🏗', label:'Contractor Master', page:'contractor'},
+    {ic:'📍', label:'Project Master', page:'project'},
+    {ic:'☰', label:'Attendance List', page:'attendance-list'},
+    {ic:'▤', label:'Reports', page:'reports'},
+    {ic:'💰', label:'Wage Report', page:'reports', onclick:"reportTab='wage';"},
+    {ic:'💵', label:'Contractor Payments', page:'contractor-payments'},
+  ];
+  if(canSeeSettings()) tiles.push({ic:'⚙', label:'Settings', page:'settings'});
+
+  c.innerHTML = `
+    <div class="section-label">Today · ${fmtDate(today)}</div>
+    <div class="stat-grid">
+      <div class="stat-card present"><div class="n mono">${p}</div><div class="l">Present</div></div>
+      <div class="stat-card absent"><div class="n mono">${a}</div><div class="l">Absent</div></div>
+      <div class="stat-card half"><div class="n mono">${h}</div><div class="l">Half Day</div></div>
+      <div class="stat-card leave"><div class="n mono">${l}</div><div class="l">Leave</div></div>
+    </div>
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+      <div><b style="font-size:13px">Active Labour</b><div class="sub" style="color:var(--text-muted);font-size:12px;">Total registered: ${LABOUR.length}</div></div>
+      <div class="mono" style="font-size:22px;font-weight:600;color:var(--accent)">${activeLabour}</div>
+    </div>
+    <div class="section-label">Quick Access</div>
+    <div class="dash-grid">
+      ${tiles.map(t=>`<div class="dash-tile" onclick="${t.onclick||''}navTo('${t.page}')"><div class="ic">${t.ic}</div><b>${t.label}</b></div>`).join('')}
+    </div>`;
+}
+
+/* ===================================================================
+   LABOUR MASTER
+=================================================================== */
+let labourSearch=''; let labourCatFilter='All'; let labourPage=1; const PAGE_SIZE=40;
+function renderLabourMaster(c){
+  setTopbar('Labour Master', LABOUR.length + ' registered');
+  const filtered = LABOUR.filter(x=>{
+    const matchesSearch = !labourSearch || x.name.toLowerCase().includes(labourSearch.toLowerCase()) || x.id.toLowerCase().includes(labourSearch.toLowerCase());
+    const matchesCat = labourCatFilter==='All' || x.category===labourCatFilter;
+    return matchesSearch && matchesCat;
+  }).sort((a,b)=>a.name.localeCompare(b.name));
+  const shown = filtered.slice(0, labourPage*PAGE_SIZE);
+
+  c.innerHTML = `
+    <div class="searchbar"><span>🔍</span><input placeholder="Search by name or Labour ID" value="${labourSearch}" oninput="labourSearch=this.value; labourPage=1; render();"></div>
+    <div class="chiprow">
+      <div class="chip ${labourCatFilter==='All'?'active':''}" onclick="labourCatFilter='All'; render();">All</div>
+      ${CATEGORIES.map(cat=>`<div class="chip ${labourCatFilter===cat?'active':''}" onclick="labourCatFilter='${cat}'; render();">${cat}</div>`).join('')}
+    </div>
+    <div id="labour-list"></div>
+    ${shown.length<filtered.length ? `<button class="btn btn-outline" onclick="labourPage++; render();">Load more (${filtered.length-shown.length} left)</button>`:''}
+  `;
+  const list=document.getElementById('labour-list');
+  if(!shown.length){
+    list.innerHTML = `<div class="empty-state"><div class="ic">👷</div><b>No labour found</b><p>Try a different search or add a new labour record.</p></div>`;
+  } else {
+    list.innerHTML = shown.map(x=>{
+      const con = contractorById(x.contractorId);
+      return `<div class="list-row">
+        <div class="avatar" ${x.photoBase64?`style="background-image:url('${x.photoBase64}');background-size:cover;background-position:center;"`:''}>${x.photoBase64?'':initials(x.name)}</div>
+        <div class="meta">
+          <b>${x.name} <span class="id-tag mono">${x.id}</span></b>
+          <div class="sub">${x.category} · ${con?con.name:'—'} · ₹${x.wageRate}/day</div>
+        </div>
+        <div class="row-actions">
+          <div class="icon-btn" onclick="openLabourForm('${x.id}')">✎</div>
+          ${canDeleteMasters()?`<div class="icon-btn danger" onclick="deleteLabour('${x.id}')">🗑</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  if(canEditMasters()){
+    document.getElementById('fab-holder').innerHTML = `<button class="fab" onclick="openLabourForm()">+</button>`;
+  }
+}
+function openLabourForm(id){
+  const existing = id ? labourById(id) : null;
+  enrollFaceDescriptor = undefined; // undefined = no change; null = cleared; array = newly captured
+  enrollPhotoDataUrl = undefined;
+  const isEnrolled = !!(existing && existing.faceDescriptor);
+  const body = `
+    <div class="field">
+      <label>Labour Photo</label>
+      <div class="face-enroll-row" id="photo-row" style="gap:14px;">
+        <img id="photo-preview" src="${existing&&existing.photoBase64?existing.photoBase64:''}" style="width:52px;height:52px;border-radius:10px;object-fit:cover;background:var(--bg-elev);${existing&&existing.photoBase64?'':'display:none;'}">
+        <div class="fe-thumb" id="photo-placeholder" style="${existing&&existing.photoBase64?'display:none;':''}">📷</div>
+        <div class="meta" style="flex:1;"><b>${existing&&existing.photoBase64?'Photo added':'No photo yet'}</b></div>
+        <input type="file" accept="image/*" capture="environment" id="photo-input" class="hidden" onchange="handlePhotoSelect(this)">
+        <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('photo-input').click()">Choose</button>
+      </div>
+    </div>
+    <div class="field"><label>Labour Name *</label><input class="input" id="f-name" value="${existing?existing.name:''}"></div>
+    <div class="field"><label>Father Name</label><input class="input" id="f-father" value="${existing?existing.fatherName||'':''}"></div>
+    <div class="row2">
+      <div class="field"><label>Mobile Number</label><input class="input" id="f-mobile" inputmode="numeric" maxlength="10" value="${existing?existing.mobile||'':''}"></div>
+      <div class="field"><label>Aadhaar (optional)</label><input class="input" id="f-aadhaar" inputmode="numeric" maxlength="12" value="${existing?existing.aadhaar||'':''}"></div>
+    </div>
+    <div class="field"><label>Contractor</label><select class="select" id="f-contractor">
+      <option value="">— None —</option>
+      ${CONTRACTORS.map(cn=>`<option value="${cn.id}" ${existing&&existing.contractorId===cn.id?'selected':''}>${cn.name}</option>`).join('')}
+    </select></div>
+    <div class="field"><label>Labour Category *</label><select class="select" id="f-category">
+      ${CATEGORIES.map(cat=>`<option ${existing&&existing.category===cat?'selected':''}>${cat}</option>`).join('')}
+    </select></div>
+    <div class="row2">
+      <div class="field"><label>Daily Wage Rate (₹) *</label><input class="input" id="f-wage" type="number" min="0" value="${existing?existing.wageRate:''}"></div>
+      <div class="field"><label>Joining Date</label><input class="input" id="f-join" type="date" value="${existing?existing.joiningDate:todayISO()}"></div>
+    </div>
+    <div class="field"><label>Status</label><select class="select" id="f-status">
+      <option ${existing&&existing.status==='Active'?'selected':''}>Active</option>
+      <option ${existing&&existing.status==='Inactive'?'selected':''}>Inactive</option>
+    </select></div>
+    <div class="field">
+      <label>Face ID (for auto-attendance)</label>
+      <div class="face-enroll-row ${isEnrolled?'enrolled':''}" id="face-enroll-row">
+        <div class="fe-thumb">${isEnrolled?'✅':'🙂'}</div>
+        <div class="meta" style="flex:1;"><b id="face-enroll-label">${isEnrolled?'Face enrolled':'Not enrolled yet'}</b></div>
+        <button type="button" class="btn btn-sm btn-outline" onclick="captureLabourFace()">${isEnrolled?'Re-capture':'Capture'}</button>
+      </div>
+      <div id="face-enroll-cam"></div>
+    </div>
+  `;
+  const foot = `<div class="btn-row">
+    <button class="btn" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="saveLabour(${existing?`'${existing.id}'`:'null'})">Save</button>
+  </div>`;
+  openModal(existing?'Edit Labour':'Add Labour', body, foot);
+}
+let enrollPhotoDataUrl;
+function handlePhotoSelect(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const maxW = 400;
+      const scale = Math.min(1, maxW/img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width*scale; canvas.height = img.height*scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      enrollPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      const preview = document.getElementById('photo-preview');
+      const placeholder = document.getElementById('photo-placeholder');
+      if(preview){ preview.src = enrollPhotoDataUrl; preview.style.display='block'; }
+      if(placeholder) placeholder.style.display='none';
+      showToast('Photo ready — Save dabayein');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+let enrollFaceDescriptor;
+let enrollStream = null;
+let enrollFacing = 'environment'; // back camera by default — easier to point at someone else's face
+async function captureLabourFace(){
+  const camHolder = document.getElementById('face-enroll-cam');
+  if(!camHolder) return;
+  try{
+    showToast('Loading face model…');
+    await ensureFaceModels();
+    enrollStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: enrollFacing } });
+  }catch(e){ showToast('Camera/model error: '+e.message); return; }
+  camHolder.innerHTML = `<div class="cam-wrap" style="aspect-ratio:1/1;margin-top:10px;">
+    <video id="enroll-video" autoplay playsinline muted></video>
+    <div class="cam-status" id="enroll-status">Chehra frame ke beech mein rakhein</div>
+  </div>
+  <div class="btn-row" style="margin-top:8px;">
+    <button type="button" class="btn btn-outline" onclick="switchEnrollCamera()">🔄 Switch Camera</button>
+    <button type="button" class="btn btn-primary" onclick="finishFaceCapture()">📸 Capture Now</button>
+  </div>`;
+  const video = document.getElementById('enroll-video');
+  video.srcObject = enrollStream;
+  video.onloadedmetadata = ()=>video.play();
+}
+async function switchEnrollCamera(){
+  enrollFacing = enrollFacing==='environment' ? 'user' : 'environment';
+  if(enrollStream){ enrollStream.getTracks().forEach(t=>t.stop()); enrollStream=null; }
+  try{ enrollStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: enrollFacing } }); }
+  catch(e){ showToast('Camera switch fail: '+e.message); return; }
+  const video = document.getElementById('enroll-video');
+  if(video){ video.srcObject = enrollStream; video.play(); }
+}
+async function finishFaceCapture(){
+  const video = document.getElementById('enroll-video');
+  const statusEl = document.getElementById('enroll-status');
+  if(!video) return;
+  if(statusEl) statusEl.textContent = 'Detecting…';
+  const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+  if(!detection){ showToast('Chehra detect nahi hua, dobara try karein'); return; }
+  enrollFaceDescriptor = Array.from(detection.descriptor);
+  if(enrollStream){ enrollStream.getTracks().forEach(t=>t.stop()); enrollStream=null; }
+  document.getElementById('face-enroll-cam').innerHTML = '';
+  const row = document.getElementById('face-enroll-row');
+  if(row){ row.classList.add('enrolled'); row.querySelector('.fe-thumb').textContent='✅'; document.getElementById('face-enroll-label').textContent='Face captured (not saved yet — tap Save)'; }
+  showToast('Face captured! Ab "Save" dabayein');
+}
+function saveLabour(id){
+  const name=document.getElementById('f-name').value.trim();
+  const wage=parseFloat(document.getElementById('f-wage').value);
+  if(!name){ showToast('Labour name is required'); return; }
+  if(!wage && wage!==0){ showToast('Daily wage rate is required'); return; }
+  const existing = id ? labourById(id) : null;
+  const data = {
+    name, fatherName:document.getElementById('f-father').value.trim(),
+    mobile:document.getElementById('f-mobile').value.trim(),
+    aadhaar:document.getElementById('f-aadhaar').value.trim(),
+    contractorId:document.getElementById('f-contractor').value,
+    category:document.getElementById('f-category').value,
+    wageRate:wage, joiningDate:document.getElementById('f-join').value || todayISO(),
+    status:document.getElementById('f-status').value,
+    faceDescriptor: enrollFaceDescriptor!==undefined ? enrollFaceDescriptor : (existing? (existing.faceDescriptor||null) : null),
+    photoBase64: enrollPhotoDataUrl!==undefined ? enrollPhotoDataUrl : (existing? (existing.photoBase64||null) : null)
+  };
+  if(id){ data.id = id; } else { data.id = nextId('L', LABOUR, 4); }
+  db.collection('labour').doc(data.id).set(data).then(()=>{
+    closeModal(); showToast('Labour saved');
+  }).catch(err=>showToast('Error: '+err.message));
+}
+function deleteLabour(id){
+  if(!confirm('Delete this labour record? This cannot be undone.')) return;
+  db.collection('labour').doc(id).delete().then(()=>showToast('Labour deleted')).catch(err=>showToast('Error: '+err.message));
+}
+
+/* ===================================================================
+   CONTRACTOR MASTER
+=================================================================== */
+let contractorSearch='';
+function renderContractorMaster(c){
+  setTopbar('Contractor Master', CONTRACTORS.length + ' contractors');
+  const filtered = CONTRACTORS.filter(x=>!contractorSearch || x.name.toLowerCase().includes(contractorSearch.toLowerCase()));
+  c.innerHTML = `
+    <div class="searchbar"><span>🔍</span><input placeholder="Search contractor" value="${contractorSearch}" oninput="contractorSearch=this.value; render();"></div>
+    <div id="contractor-list"></div>`;
+  const list=document.getElementById('contractor-list');
+  if(!filtered.length){
+    list.innerHTML=`<div class="empty-state"><div class="ic">🏗</div><b>No contractors yet</b><p>Add your first contractor.</p></div>`;
+  } else {
+    list.innerHTML = filtered.map(x=>{
+      const count = LABOUR.filter(l=>l.contractorId===x.id).length;
+      return `<div class="list-row">
+        <div class="avatar">${initials(x.name)}</div>
+        <div class="meta"><b>${x.name}</b><div class="sub">${x.mobile||'—'} · ${count} labour · ${x.address||''}</div></div>
+        <div class="row-actions">
+          <div class="icon-btn" onclick="openContractorForm('${x.id}')">✎</div>
+          ${canDeleteMasters()?`<div class="icon-btn danger" onclick="deleteContractor('${x.id}')">🗑</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  if(canEditMasters()) document.getElementById('fab-holder').innerHTML = `<button class="fab" onclick="openContractorForm()">+</button>`;
+}
+function openContractorForm(id){
+  const existing = id ? contractorById(id) : null;
+  const body = `
+    <div class="field"><label>Contractor Name *</label><input class="input" id="f-cname" value="${existing?existing.name:''}"></div>
+    <div class="field"><label>Mobile Number</label><input class="input" id="f-cmobile" inputmode="numeric" maxlength="10" value="${existing?existing.mobile||'':''}"></div>
+    <div class="field"><label>Address</label><textarea class="input" id="f-caddr" rows="3">${existing?existing.address||'':''}</textarea></div>`;
+  const foot = `<div class="btn-row"><button class="btn" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="saveContractor(${existing?`'${existing.id}'`:'null'})">Save</button></div>`;
+  openModal(existing?'Edit Contractor':'Add Contractor', body, foot);
+}
+function saveContractor(id){
+  const name=document.getElementById('f-cname').value.trim();
+  if(!name){ showToast('Contractor name is required'); return; }
+  const data={name, mobile:document.getElementById('f-cmobile').value.trim(), address:document.getElementById('f-caddr').value.trim()};
+  if(id){ data.id = id; } else { data.id = nextId('C', CONTRACTORS, 3); }
+  db.collection('contractors').doc(data.id).set(data).then(()=>{
+    closeModal(); showToast('Contractor saved');
+  }).catch(err=>showToast('Error: '+err.message));
+}
+function deleteContractor(id){
+  if(!confirm('Delete this contractor?')) return;
+  db.collection('contractors').doc(id).delete().then(()=>showToast('Contractor deleted')).catch(err=>showToast('Error: '+err.message));
+}
+
+/* ===================================================================
+   PROJECT MASTER
+=================================================================== */
+function renderProjectMaster(c){
+  setTopbar('Project Master', PROJECTS.length + ' projects');
+  c.innerHTML = `<div id="project-list"></div>`;
+  const list=document.getElementById('project-list');
+  if(!PROJECTS.length){
+    list.innerHTML=`<div class="empty-state"><div class="ic">📍</div><b>No projects yet</b><p>Add your first project site.</p></div>`;
+  } else {
+    list.innerHTML = PROJECTS.map(x=>`<div class="list-row">
+      <div class="avatar">${initials(x.name)}</div>
+      <div class="meta"><b>${x.name}</b><div class="sub">${x.location||'—'}</div></div>
+      <div class="row-actions">
+        <div class="icon-btn" onclick="openProjectForm('${x.id}')">✎</div>
+        ${canDeleteMasters()?`<div class="icon-btn danger" onclick="deleteProject('${x.id}')">🗑</div>`:''}
+      </div></div>`).join('');
+  }
+  if(canEditMasters()) document.getElementById('fab-holder').innerHTML = `<button class="fab" onclick="openProjectForm()">+</button>`;
+}
+function openProjectForm(id){
+  const existing = id ? projectById(id) : null;
+  const body = `
+    <div class="field"><label>Project Name *</label><input class="input" id="f-pname" value="${existing?existing.name:''}"></div>
+    <div class="field"><label>Project Location</label><input class="input" id="f-ploc" value="${existing?existing.location||'':''}"></div>`;
+  const foot = `<div class="btn-row"><button class="btn" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="saveProject(${existing?`'${existing.id}'`:'null'})">Save</button></div>`;
+  openModal(existing?'Edit Project':'Add Project', body, foot);
+}
+function saveProject(id){
+  const name=document.getElementById('f-pname').value.trim();
+  if(!name){ showToast('Project name is required'); return; }
+  const data={name, location:document.getElementById('f-ploc').value.trim()};
+  if(id){ data.id = id; } else { data.id = nextId('P', PROJECTS, 3); }
+  db.collection('projects').doc(data.id).set(data).then(()=>{
+    closeModal(); showToast('Project saved');
+  }).catch(err=>showToast('Error: '+err.message));
+}
+function deleteProject(id){
+  if(!confirm('Delete this project?')) return;
+  db.collection('projects').doc(id).delete().then(()=>showToast('Project deleted')).catch(err=>showToast('Error: '+err.message));
+}
+
+/* ===================================================================
+   CONTRACTOR PAYMENT TRACKING
+=================================================================== */
+let cpState = { month: todayISO().slice(0,7), contractorId: '' };
+
+function computeContractorPayableTotal(contractorId, month){
+  const rows = ATTENDANCE.filter(a=>a.date.slice(0,7)===month && a.contractorId===contractorId);
+  const by = {};
+  rows.forEach(r=>{ by[r.labourId]=by[r.labourId]||{P:0,H:0}; by[r.labourId][r.status]=(by[r.labourId][r.status]||0)+1; });
+  let total=0;
+  Object.keys(by).forEach(lid=>{
+    const lb=labourById(lid); if(!lb) return;
+    const s=by[lid];
+    const base=((s.P||0)+(s.H||0)*0.5)*(lb.wageRate||0);
+    const adj = WAGE_ADJ.find(w=>w.id===(month+'_'+lid));
+    const ot = adj?(parseFloat(adj.otAmount)||0):0;
+    total += base+ot;
+  });
+  return total;
+}
+function computeContractorPaidTotal(contractorId, month){
+  return CONTRACTOR_PAYMENTS.filter(p=>p.contractorId===contractorId && (!month || p.date.slice(0,7)===month))
+    .reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+}
+function renderContractorPayments(c){
+  setTopbar('Contractor Payments', cpState.month);
+  if(!cpState.contractorId){
+    c.innerHTML = `
+      <div class="card"><div class="field" style="margin-bottom:0;"><label>Month</label><input class="input" type="month" value="${cpState.month}" onchange="cpState.month=this.value; render();"></div></div>
+      <div class="section-label">Contractor-wise Balance</div>
+      <div id="cp-list"></div>
+    `;
+    const holder = document.getElementById('cp-list');
+    if(!CONTRACTORS.length){ holder.innerHTML = `<div class="empty-state"><div class="ic">💵</div><b>No contractors yet</b><p>Contractor Master mein pehle add karein.</p></div>`; return; }
+    holder.innerHTML = CONTRACTORS.map(cn=>{
+      const payable = computeContractorPayableTotal(cn.id, cpState.month);
+      const paid = computeContractorPaidTotal(cn.id, cpState.month);
+      const balance = payable-paid;
+      return `<div class="list-row" onclick="cpState.contractorId='${cn.id}'; render();">
+        <div class="avatar">${initials(cn.name)}</div>
+        <div class="meta"><b>${cn.name}</b><div class="sub">Payable ₹${payable.toFixed(0)} · Paid ₹${paid.toFixed(0)}</div></div>
+        <div class="mono" style="font-weight:700;color:${balance>0?'var(--danger)':'var(--success)'};">₹${balance.toFixed(0)}</div>
+      </div>`;
+    }).join('');
+    return;
+  }
+  const cn = contractorById(cpState.contractorId);
+  if(!cn){ cpState.contractorId=''; return renderContractorPayments(c); }
+  const payable = computeContractorPayableTotal(cn.id, cpState.month);
+  const paid = computeContractorPaidTotal(cn.id, cpState.month);
+  const balance = payable - paid;
+  const allPayments = CONTRACTOR_PAYMENTS.filter(p=>p.contractorId===cn.id).sort((a,b)=>b.date.localeCompare(a.date));
+  c.innerHTML = `
+    <button class="btn btn-sm btn-outline" style="margin-bottom:12px;" onclick="cpState.contractorId=''; render();">‹ All Contractors</button>
+    <div class="card"><b style="font-size:15px;">${cn.name}</b><div style="color:var(--text-muted);font-size:12px;margin-top:2px;">${cn.mobile||''}</div></div>
+    <div class="field"><label>Month (for payable calc)</label><input class="input" type="month" value="${cpState.month}" onchange="cpState.month=this.value; render();"></div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n mono">₹${payable.toFixed(0)}</div><div class="l">Payable (this month)</div></div>
+      <div class="stat-card present"><div class="n mono">₹${paid.toFixed(0)}</div><div class="l">Paid (this month)</div></div>
+    </div>
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+      <b style="font-size:13px;">Balance Due</b>
+      <div class="mono" style="font-size:20px;font-weight:700;color:${balance>0?'var(--danger)':'var(--success)'};">₹${balance.toFixed(0)}</div>
+    </div>
+    <button class="btn btn-primary" onclick="openPaymentForm('${cn.id}')">+ Add Payment</button>
+    <div class="section-label" style="margin-top:14px;">All Payments</div>
+    <div id="cp-payments-list"></div>
+  `;
+  const holder = document.getElementById('cp-payments-list');
+  if(!allPayments.length){ holder.innerHTML = `<div class="empty-state"><div class="ic">💵</div><b>No payments yet</b></div>`; return; }
+  holder.innerHTML = allPayments.map(p=>`
+    <div class="list-row">
+      <div class="stamp P" style="border-color:var(--accent-2);color:var(--accent-2);">₹</div>
+      <div class="meta"><b>₹${(parseFloat(p.amount)||0).toFixed(0)}</b><div class="sub">${fmtDate(p.date)} · ${p.mode||''}${p.remarks?' · '+p.remarks:''}</div></div>
+      <div class="row-actions"><div class="icon-btn danger" onclick="deleteContractorPayment('${p.id}')">🗑</div></div>
+    </div>`).join('');
+}
+function openPaymentForm(contractorId){
+  const body = `
+    <div class="field"><label>Date</label><input class="input" type="date" id="p-date" value="${todayISO()}"></div>
+    <div class="field"><label>Amount (₹) *</label><input class="input" type="number" min="0" id="p-amount" placeholder="0"></div>
+    <div class="field"><label>Mode</label><select class="select" id="p-mode">
+      <option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option>
+    </select></div>
+    <div class="field"><label>Remarks</label><input class="input" id="p-remarks" placeholder="Optional"></div>
+  `;
+  const foot = `<div class="btn-row"><button class="btn" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="saveContractorPayment('${contractorId}')">Save</button></div>`;
+  openModal('Add Payment', body, foot);
+}
+function saveContractorPayment(contractorId){
+  const amount = parseFloat(document.getElementById('p-amount').value);
+  if(!amount && amount!==0){ showToast('Amount daalein'); return; }
+  const rec = {
+    id: 'PAY'+Date.now()+Math.floor(Math.random()*1000),
+    contractorId, date: document.getElementById('p-date').value || todayISO(),
+    amount, mode: document.getElementById('p-mode').value, remarks: document.getElementById('p-remarks').value.trim(),
+    ts: Date.now()
+  };
+  db.collection('contractorPayments').doc(rec.id).set(rec).then(()=>{
+    closeModal(); showToast('Payment saved');
+  }).catch(err=>showToast('Error: '+err.message));
+}
+function deleteContractorPayment(id){
+  if(!confirm('Delete this payment record?')) return;
+  db.collection('contractorPayments').doc(id).delete().then(()=>showToast('Deleted')).catch(err=>showToast('Error: '+err.message));
+}
+
+/* ===================================================================
+   ATTENDANCE ENTRY
+=================================================================== */
+let entryState = { date: todayISO(), projectId:'', contractorId:'', search:'', selectedLabourId:null, status:'P', inTime:'', outTime:'', otHours:'', remarks:'' };
+
+function renderAttendanceEntry(c){
+  setTopbar('Attendance Entry', fmtDate(entryState.date));
+  const sel = entryState.selectedLabourId ? labourById(entryState.selectedLabourId) : null;
+  const searchResults = entryState.search.length>0 ? LABOUR.filter(x=>x.status==='Active' &&
+      (x.name.toLowerCase().includes(entryState.search.toLowerCase()) || x.id.toLowerCase().includes(entryState.search.toLowerCase()))).slice(0,8) : [];
+
+  c.innerHTML = `
+    <div class="card">
+      <div class="row2">
+        <div class="field"><label>Date</label><input class="input" type="date" id="e-date" value="${entryState.date}" onchange="entryState.date=this.value; render();"></div>
+        <div class="field"><label>Project</label><select class="select" id="e-project" onchange="entryState.projectId=this.value;">
+          <option value="">— Select —</option>
+          ${PROJECTS.map(p=>`<option value="${p.id}" ${entryState.projectId===p.id?'selected':''}>${p.name}</option>`).join('')}
+        </select></div>
+      </div>
+      <div class="field"><label>Contractor</label><select class="select" id="e-contractor" onchange="entryState.contractorId=this.value;">
+        <option value="">— Select —</option>
+        ${CONTRACTORS.map(cn=>`<option value="${cn.id}" ${entryState.contractorId===cn.id?'selected':''}>${cn.name}</option>`).join('')}
+      </select></div>
+
+      <div class="field" style="margin-bottom:0;">
+        <label>Search Labour by Name or Labour ID</label>
+        <div class="searchbar" style="margin-bottom:0;">
+          <span>🔍</span><input id="e-search" placeholder="Type name or ID…" value="${entryState.search}" oninput="entryState.search=this.value; render();">
+        </div>
+      </div>
+      ${searchResults.length ? `<div class="result-drop">${searchResults.map(x=>{
+          const con=contractorById(x.contractorId);
+          return `<div class="result-item" onclick="pickLabour('${x.id}')"><div><b>${x.name}</b><div class="sub">${x.id} · ${x.category} · ${con?con.name:'—'}</div></div><span>›</span></div>`;
+        }).join('')}</div>` : ''}
+    </div>
+
+    ${sel ? `
+    <div class="sel-labour">
+      <div class="avatar">${initials(sel.name)}</div>
+      <div class="meta"><b>${sel.name} <span class="id-tag mono">${sel.id}</span></b>
+        <div class="sub">${sel.category} · ₹${sel.wageRate}/day</div></div>
+      <div class="icon-btn" onclick="entryState.selectedLabourId=null; render();">✕</div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Attendance Status</div>
+      <div class="status-picker">
+        ${['P','A','H','L'].map(s=>`<div class="status-opt ${entryState.status===s?'sel '+s:''}" onclick="entryState.status='${s}'; render();">
+          <div class="stamp ${s}">${s}</div><span>${STATUS_META[s].label}</span></div>`).join('')}
+      </div>
+      <div class="row2" style="margin-top:14px;">
+        <div class="field"><label>In Time</label><input class="input" type="time" id="e-in" value="${entryState.inTime}" onchange="entryState.inTime=this.value;"></div>
+        <div class="field"><label>Out Time</label><input class="input" type="time" id="e-out" value="${entryState.outTime}" onchange="entryState.outTime=this.value;"></div>
+      </div>
+      <div class="field"><label>Overtime Hours</label><input class="input" type="number" min="0" step="0.5" id="e-ot" value="${entryState.otHours}" onchange="entryState.otHours=this.value;"></div>
+      <div class="field"><label>Remarks</label><textarea class="input" id="e-remarks" rows="2" onchange="entryState.remarks=this.value;">${entryState.remarks}</textarea></div>
+      <button class="btn btn-primary" onclick="saveAttendanceEntry()">Save Attendance</button>
+    </div>` : ''}
+
+    <div class="section-label">Today's Marked Attendance (${ATTENDANCE.filter(a=>a.date===entryState.date).length})</div>
+    <div id="today-mini-list"></div>
+  `;
+
+  const miniList = document.getElementById('today-mini-list');
+  const todays = ATTENDANCE.filter(a=>a.date===entryState.date).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  if(!todays.length){
+    miniList.innerHTML = `<div class="empty-state"><div class="ic">✎</div><b>No entries yet</b><p>Search a labour above and mark attendance.</p></div>`;
+  } else {
+    miniList.innerHTML = todays.map(a=>{
+      const lb = labourById(a.labourId); if(!lb) return '';
+      return `<div class="list-row">
+        <div class="stamp ${a.status}">${a.status}</div>
+        <div class="meta"><b>${lb.name}</b><div class="sub">${lb.category} · ${a.inTime||'--'} - ${a.outTime||'--'}${a.otHours?' · OT '+a.otHours+'h':''}</div></div>
+        <div class="row-actions">
+          <div class="icon-btn" onclick="editAttendanceEntry('${a.id}')">✎</div>
+          <div class="icon-btn danger" onclick="deleteAttendanceRecord('${a.id}')">🗑</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+function pickLabour(id){
+  const lb = labourById(id);
+  entryState.selectedLabourId = id; entryState.search='';
+  entryState.contractorId = lb.contractorId || entryState.contractorId;
+  entryState.status='P'; entryState.inTime=''; entryState.outTime=''; entryState.otHours=''; entryState.remarks='';
+  render();
+}
+function saveAttendanceEntry(){
+  if(!entryState.selectedLabourId){ showToast('Select a labour first'); return; }
+  const lb = labourById(entryState.selectedLabourId);
+  const existingIdx = ATTENDANCE.findIndex(a=>a.date===entryState.date && a.labourId===lb.id);
+  const rec = {
+    id: existingIdx>=0 ? ATTENDANCE[existingIdx].id : 'A'+Date.now()+Math.floor(Math.random()*1000),
+    date: entryState.date, projectId: entryState.projectId, contractorId: entryState.contractorId || lb.contractorId,
+    labourId: lb.id, category: lb.category, status: entryState.status,
+    inTime: entryState.inTime, outTime: entryState.outTime, otHours: entryState.otHours, remarks: entryState.remarks,
+    ts: Date.now()
+  };
+  db.collection('attendance').doc(rec.id).set(rec).then(()=>{
+    showToast('Attendance saved for ' + lb.name);
+    entryState.selectedLabourId=null; entryState.search='';
+    render();
+  }).catch(err=>showToast('Error: '+err.message));
+}
+function editAttendanceEntry(id){
+  const rec = ATTENDANCE.find(a=>a.id===id); if(!rec) return;
+  entryState.date=rec.date; entryState.projectId=rec.projectId||''; entryState.contractorId=rec.contractorId||'';
+  entryState.selectedLabourId=rec.labourId; entryState.status=rec.status; entryState.inTime=rec.inTime||'';
+  entryState.outTime=rec.outTime||''; entryState.otHours=rec.otHours||''; entryState.remarks=rec.remarks||'';
+  window.scrollTo(0,0); render();
+}
+function deleteAttendanceRecord(id){
+  if(!confirm('Delete this attendance record?')) return;
+  db.collection('attendance').doc(id).delete().then(()=>showToast('Record deleted')).catch(err=>showToast('Error: '+err.message));
+}
+
+/* ===================================================================
+   FACE ATTENDANCE (on-device face recognition, no server)
+=================================================================== */
+let faceModelsLoaded = false;
+let faceScanActive = false;
+let faceStream = null;
+let faceScanTimer = null;
+let faceFacing = 'environment'; // back camera by default
+let faceSessionMarked = {};
+let faceRecentLog = [];
+let faceEntryState = { date: todayISO(), projectId:'', contractorId:'' };
+const FACE_MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+
+async function ensureFaceModels(){
+  if(faceModelsLoaded) return;
+  await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODEL_URL);
+  await faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODEL_URL);
+  await faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODEL_URL);
+  faceModelsLoaded = true;
+}
+
+function renderFaceAttendance(c){
+  setTopbar('Face Attendance', fmtDate(faceEntryState.date));
+  if(faceScanActive && document.getElementById('face-video')){
+    updateFaceRecentList();
+    return; // camera already running — don't touch the DOM, just refresh the log
+  }
+  const enrolledCount = LABOUR.filter(l=>l.faceDescriptor && l.status==='Active').length;
+  c.innerHTML = `
+    <div class="card">
+      <div class="row2">
+        <div class="field"><label>Date</label><input class="input" type="date" value="${faceEntryState.date}" onchange="faceEntryState.date=this.value;"></div>
+        <div class="field"><label>Project</label><select class="select" onchange="faceEntryState.projectId=this.value;">
+          <option value="">— Select —</option>${PROJECTS.map(p=>`<option value="${p.id}" ${faceEntryState.projectId===p.id?'selected':''}>${p.name}</option>`).join('')}
+        </select></div>
+      </div>
+      <div class="field"><label>Contractor</label><select class="select" onchange="faceEntryState.contractorId=this.value;">
+        <option value="">— Select —</option>${CONTRACTORS.map(cn=>`<option value="${cn.id}" ${faceEntryState.contractorId===cn.id?'selected':''}>${cn.name}</option>`).join('')}
+      </select></div>
+      <div class="section-label">${enrolledCount} labour enrolled for face recognition</div>
+      <button class="btn btn-primary" onclick="startFaceScan()">📷 Start Camera &amp; Scan</button>
+    </div>
+    ${enrolledCount===0 ? `<div class="empty-state"><div class="ic">🙂</div><b>No faces enrolled yet</b><p>Labour Master → labour ko edit karein → "Capture" se Face ID enroll karein.</p></div>` : ''}
+    <div class="section-label">Recently Scanned (this session)</div>
+    <div id="face-recent-list"></div>
+  `;
+  updateFaceRecentList();
+}
+
+function updateFaceRecentList(){
+  const el = document.getElementById('face-recent-list');
+  if(!el) return;
+  if(!faceRecentLog.length){ el.innerHTML = `<div class="empty-state" style="padding:24px;"><p>Scan hone par yahan dikhega</p></div>`; return; }
+  el.innerHTML = faceRecentLog.slice(0,15).map(r=>`
+    <div class="scan-recent">
+      <div class="stamp P">✓</div>
+      <div class="meta"><b>${r.name}</b><div class="sub" style="color:var(--text-muted);font-size:11.5px;">${r.time}</div></div>
+    </div>`).join('');
+}
+
+async function startFaceScan(){
+  if(!faceEntryState.projectId){ showToast('Pehle Project select karein'); return; }
+  showToast('Loading face model… thoda intezaar karein');
+  try{ await ensureFaceModels(); }
+  catch(e){ showToast('Model load nahi hua — internet check karein'); return; }
+  try{ faceStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: faceFacing } }); }
+  catch(e){ showToast('Camera access allow karein'); return; }
+
+  faceScanActive = true;
+  faceSessionMarked = {};
+  const c = document.getElementById('content');
+  c.innerHTML = `
+    <div class="cam-wrap">
+      <video id="face-video" autoplay playsinline muted></video>
+      <canvas id="face-canvas"></canvas>
+      <div class="cam-status" id="face-cam-status">Camera on — chehra dikhayein</div>
+    </div>
+    <div class="btn-row" style="margin-bottom:14px;">
+      <button class="btn btn-outline" onclick="switchFaceCamera()">🔄 Switch Camera</button>
+      <button class="btn btn-outline" onclick="stopFaceCamera(); render();">⏹ Stop</button>
+    </div>
+    <div class="section-label">Recently Scanned (this session)</div>
+    <div id="face-recent-list"></div>
+  `;
+  updateFaceRecentList();
+  const video = document.getElementById('face-video');
+  video.srcObject = faceStream;
+  video.onloadedmetadata = ()=>{ video.play(); startFaceLoop(); };
+}
+async function switchFaceCamera(){
+  faceFacing = faceFacing==='environment' ? 'user' : 'environment';
+  if(faceScanTimer){ clearInterval(faceScanTimer); faceScanTimer=null; }
+  if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream=null; }
+  try{ faceStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: faceFacing } }); }
+  catch(e){ showToast('Camera switch fail: '+e.message); return; }
+  const video = document.getElementById('face-video');
+  if(video){ video.srcObject = faceStream; video.onloadedmetadata = ()=>{ video.play(); startFaceLoop(); }; }
+}
+
+function stopFaceCamera(){
+  faceScanActive = false;
+  if(faceScanTimer){ clearInterval(faceScanTimer); faceScanTimer=null; }
+  if(faceStream){ faceStream.getTracks().forEach(t=>t.stop()); faceStream=null; }
+}
+
+function startFaceLoop(){
+  const video = document.getElementById('face-video');
+  const canvas = document.getElementById('face-canvas');
+  if(!video || !canvas) return;
+  const labelled = LABOUR.filter(l=>l.faceDescriptor && l.status==='Active').map(l=>
+    new faceapi.LabeledFaceDescriptors(l.id, [new Float32Array(l.faceDescriptor)]));
+  const faceMatcher = labelled.length ? new faceapi.FaceMatcher(labelled, 0.5) : null;
+  let busy = false;
+  faceScanTimer = setInterval(async ()=>{
+    if(!faceScanActive || !video.videoWidth || busy) return;
+    busy = true;
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+    const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+    const statusEl = document.getElementById('face-cam-status');
+    if(!detection){ if(statusEl){ statusEl.textContent='Chehra khoja ja raha hai…'; statusEl.classList.remove('match'); } busy=false; return; }
+    faceapi.draw.drawDetections(canvas, [detection]);
+    if(!faceMatcher){ if(statusEl) statusEl.textContent='Koi labour enroll nahi hai'; busy=false; return; }
+    const best = faceMatcher.findBestMatch(detection.descriptor);
+    if(best.label!=='unknown'){
+      const lb = labourById(best.label);
+      if(lb){
+        if(statusEl){ statusEl.textContent = '✓ '+lb.name+' pehchana gaya'; statusEl.classList.add('match'); }
+        if(!faceSessionMarked[lb.id]){ faceSessionMarked[lb.id]=true; markFaceAttendance(lb); }
+      }
+    } else {
+      if(statusEl){ statusEl.textContent='Chehra pehchana nahi gaya'; statusEl.classList.remove('match'); }
+    }
+    busy=false;
+  }, 1500);
+}
+
+function markFaceAttendance(lb){
+  const now = new Date();
+  const time = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const existing = ATTENDANCE.find(a=>a.date===faceEntryState.date && a.labourId===lb.id);
+  const rec = {
+    id: existing? existing.id : 'A'+Date.now()+Math.floor(Math.random()*1000),
+    date: faceEntryState.date, projectId: faceEntryState.projectId, contractorId: faceEntryState.contractorId || lb.contractorId || '',
+    labourId: lb.id, category: lb.category, status:'P',
+    inTime: existing?(existing.inTime||time):time, outTime: existing?(existing.outTime||''):'',
+    otHours: existing?(existing.otHours||''):'', remarks:'Face Recognition', ts: Date.now()
+  };
+  db.collection('attendance').doc(rec.id).set(rec).then(()=>{
+    showToast(lb.name+' — Attendance marked ✓');
+    faceRecentLog.unshift({name:lb.name, time: time});
+    updateFaceRecentList();
+  }).catch(err=>showToast('Error: '+err.message));
+}
+
+/* ===================================================================
+   ATTENDANCE LIST (full, filterable)
+=================================================================== */
+let listFilters = { date: todayISO(), contractorId:'', projectId:'', category:'All', search:'' };
+function renderAttendanceList(c){
+  setTopbar('Attendance List', fmtDate(listFilters.date));
+  const rows = ATTENDANCE.filter(a=>{
+    if(a.date !== listFilters.date) return false;
+    if(listFilters.contractorId && a.contractorId!==listFilters.contractorId) return false;
+    if(listFilters.projectId && a.projectId!==listFilters.projectId) return false;
+    if(listFilters.category!=='All' && a.category!==listFilters.category) return false;
+    if(listFilters.search){
+      const lb = labourById(a.labourId);
+      if(!lb) return false;
+      const q=listFilters.search.toLowerCase();
+      if(!lb.name.toLowerCase().includes(q) && !lb.id.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+  const p=rows.filter(r=>r.status==='P').length, a=rows.filter(r=>r.status==='A').length,
+        h=rows.filter(r=>r.status==='H').length, l=rows.filter(r=>r.status==='L').length;
+
+  c.innerHTML = `
+    <div class="card">
+      <div class="field"><label>Date</label><input class="input" type="date" value="${listFilters.date}" onchange="listFilters.date=this.value; render();"></div>
+      <div class="row2">
+        <div class="field"><label>Project</label><select class="select" onchange="listFilters.projectId=this.value; render();">
+          <option value="">All Projects</option>${PROJECTS.map(pp=>`<option value="${pp.id}" ${listFilters.projectId===pp.id?'selected':''}>${pp.name}</option>`).join('')}</select></div>
+        <div class="field"><label>Contractor</label><select class="select" onchange="listFilters.contractorId=this.value; render();">
+          <option value="">All Contractors</option>${CONTRACTORS.map(cn=>`<option value="${cn.id}" ${listFilters.contractorId===cn.id?'selected':''}>${cn.name}</option>`).join('')}</select></div>
+      </div>
+      <div class="searchbar"><span>🔍</span><input placeholder="Search labour name or ID" value="${listFilters.search}" oninput="listFilters.search=this.value; render();"></div>
+      <div class="chiprow" style="margin-bottom:0;">
+        <div class="chip ${listFilters.category==='All'?'active':''}" onclick="listFilters.category='All'; render();">All</div>
+        ${CATEGORIES.map(cat=>`<div class="chip ${listFilters.category===cat?'active':''}" onclick="listFilters.category='${cat}'; render();">${cat}</div>`).join('')}
+      </div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card present"><div class="n mono">${p}</div><div class="l">Present</div></div>
+      <div class="stat-card absent"><div class="n mono">${a}</div><div class="l">Absent</div></div>
+      <div class="stat-card half"><div class="n mono">${h}</div><div class="l">Half Day</div></div>
+      <div class="stat-card leave"><div class="n mono">${l}</div><div class="l">Leave</div></div>
+    </div>
+    <div class="btn-row" style="margin-bottom:14px;">
+      <button class="btn btn-outline" onclick="exportAttendanceListExcel()">⬇ Excel</button>
+      <button class="btn btn-outline" onclick="exportAttendanceListPDF()">⬇ PDF</button>
+    </div>
+    <div id="list-rows"></div>
+  `;
+  const holder=document.getElementById('list-rows');
+  if(!rows.length){
+    holder.innerHTML = `<div class="empty-state"><div class="ic">☰</div><b>No records</b><p>No attendance marked for this filter yet.</p></div>`;
+  } else {
+    holder.innerHTML = rows.map(r=>{
+      const lb=labourById(r.labourId); if(!lb) return '';
+      const con=contractorById(r.contractorId);
+      return `<div class="list-row">
+        <div class="stamp ${r.status}">${r.status}</div>
+        <div class="meta"><b>${lb.name} <span class="id-tag mono">${lb.id}</span></b><div class="sub">${lb.category} · ${con?con.name:'—'}</div></div>
+        <div class="row-actions">
+          <div class="icon-btn" onclick="editAttendanceEntry('${r.id}'); navTo('attendance-entry');">✎</div>
+          <div class="icon-btn danger" onclick="deleteAttendanceRecord('${r.id}')">🗑</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+function currentListRowsForExport(){
+  return ATTENDANCE.filter(a=>{
+    if(a.date !== listFilters.date) return false;
+    if(listFilters.contractorId && a.contractorId!==listFilters.contractorId) return false;
+    if(listFilters.projectId && a.projectId!==listFilters.projectId) return false;
+    if(listFilters.category!=='All' && a.category!==listFilters.category) return false;
+    return true;
+  }).map(r=>{
+    const lb=labourById(r.labourId)||{}; const con=contractorById(r.contractorId)||{}; const pr=projectById(r.projectId)||{};
+    return [lb.id||'', lb.name||'', r.category||'', con.name||'', pr.name||'', STATUS_META[r.status].label, r.inTime||'', r.outTime||'', r.otHours||'0', r.remarks||''];
+  });
+}
+function exportAttendanceListExcel(){
+  const rows = currentListRowsForExport();
+  if(!rows.length){ showToast('No data to export'); return; }
+  exportExcel('Attendance_'+listFilters.date, ['Labour ID','Name','Category','Contractor','Project','Status','In Time','Out Time','OT Hours','Remarks'], rows);
+}
+function exportAttendanceListPDF(){
+  const rows = currentListRowsForExport();
+  if(!rows.length){ showToast('No data to export'); return; }
+  exportPDF('Attendance_'+listFilters.date, 'Attendance List — '+fmtDate(listFilters.date), ['ID','Name','Category','Contractor','Project','Status','In','Out','OT','Remarks'], rows);
+}
+
+/* ===================================================================
+   REPORTS
+=================================================================== */
+let reportTab='daily';
+let reportState = { date: todayISO(), month: todayISO().slice(0,7), contractorId:'', labourId:'', category:'All' };
+let wageState = { month: todayISO().slice(0,7), contractorId:'', projectId:'' };
+
+function renderReports(c){
+  setTopbar('Reports', '');
+  const tabs = [
+    {id:'daily', l:'Daily'}, {id:'monthly', l:'Monthly'}, {id:'contractor', l:'Contractor-wise'},
+    {id:'labour', l:'Labour-wise'}, {id:'category', l:'Category-wise'}, {id:'wage', l:'💰 Wage'}
+  ];
+  c.innerHTML = `
+    <div class="tabs">${tabs.map(t=>`<div class="tab ${reportTab===t.id?'active':''}" onclick="reportTab='${t.id}'; render();">${t.l}</div>`).join('')}</div>
+    <div id="report-body"></div>
+  `;
+  const body = document.getElementById('report-body');
+  if(reportTab==='daily') return renderDailyReport(body);
+  if(reportTab==='monthly') return renderMonthlyReport(body);
+  if(reportTab==='contractor') return renderContractorReport(body);
+  if(reportTab==='labour') return renderLabourReport(body);
+  if(reportTab==='category') return renderCategoryReport(body);
+  if(reportTab==='wage') return renderWageReport(body);
+}
+function summaryCards(rows){
+  const p=rows.filter(r=>r.status==='P').length, a=rows.filter(r=>r.status==='A').length,
+        h=rows.filter(r=>r.status==='H').length, l=rows.filter(r=>r.status==='L').length;
+  return `<div class="stat-grid">
+    <div class="stat-card present"><div class="n mono">${p}</div><div class="l">Total Present</div></div>
+    <div class="stat-card absent"><div class="n mono">${a}</div><div class="l">Total Absent</div></div>
+    <div class="stat-card half"><div class="n mono">${h}</div><div class="l">Half Day</div></div>
+    <div class="stat-card leave"><div class="n mono">${l}</div><div class="l">Leave</div></div>
+  </div>`;
+}
+function renderDailyReport(body){
+  const rows = ATTENDANCE.filter(a=>a.date===reportState.date);
+  body.innerHTML = `
+    <div class="field"><label>Date</label><input class="input" type="date" value="${reportState.date}" onchange="reportState.date=this.value; render();"></div>
+    ${summaryCards(rows)}
+    <div class="btn-row" style="margin-bottom:12px;"><button class="btn btn-outline" onclick="exportReportExcel('daily')">⬇ Excel</button><button class="btn btn-outline" onclick="exportReportPDF('daily')">⬇ PDF</button></div>
+    ${reportTable(rows)}
+  `;
+}
+function renderMonthlyReport(body){
+  const rows = ATTENDANCE.filter(a=>a.date.slice(0,7)===reportState.month);
+  const byLabour = {};
+  rows.forEach(r=>{ byLabour[r.labourId]=byLabour[r.labourId]||{P:0,A:0,H:0,L:0}; byLabour[r.labourId][r.status]++; });
+  const labourRows = Object.keys(byLabour).map(lid=>{
+    const lb=labourById(lid); if(!lb) return null;
+    const s=byLabour[lid];
+    return {lb, s, wageDue: (s.P + s.H*0.5)*lb.wageRate};
+  }).filter(Boolean).sort((x,y)=>x.lb.name.localeCompare(y.lb.name));
+  body.innerHTML = `
+    <div class="field"><label>Month</label><input class="input" type="month" value="${reportState.month}" onchange="reportState.month=this.value; render();"></div>
+    ${summaryCards(rows)}
+    <div class="btn-row" style="margin-bottom:12px;"><button class="btn btn-outline" onclick="exportReportExcel('monthly')">⬇ Excel</button><button class="btn btn-outline" onclick="exportReportPDF('monthly')">⬇ PDF</button></div>
+    <div class="table-scroll"><table class="data-table"><thead><tr><th>ID</th><th>Name</th><th>P</th><th>A</th><th>H</th><th>L</th><th>Est. Wage (₹)</th></tr></thead>
+    <tbody>${labourRows.map(r=>`<tr><td class="mono">${r.lb.id}</td><td>${r.lb.name}</td><td>${r.s.P}</td><td>${r.s.A}</td><td>${r.s.H}</td><td>${r.s.L}</td><td class="mono">${r.wageDue.toFixed(0)}</td></tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">No data</td></tr>'}</tbody></table></div>
+  `;
+}
+function renderContractorReport(body){
+  const opts = `<option value="">All Contractors</option>` + CONTRACTORS.map(cn=>`<option value="${cn.id}" ${reportState.contractorId===cn.id?'selected':''}>${cn.name}</option>`).join('');
+  const rows = ATTENDANCE.filter(a=> !reportState.contractorId || a.contractorId===reportState.contractorId);
+  const grouped = {};
+  rows.forEach(r=>{ grouped[r.contractorId]=grouped[r.contractorId]||{P:0,A:0,H:0,L:0}; grouped[r.contractorId][r.status]++; });
+  body.innerHTML = `
+    <div class="field"><label>Contractor</label><select class="select" onchange="reportState.contractorId=this.value; render();">${opts}</select></div>
+    ${summaryCards(rows)}
+    <div class="btn-row" style="margin-bottom:12px;"><button class="btn btn-outline" onclick="exportReportExcel('contractor')">⬇ Excel</button><button class="btn btn-outline" onclick="exportReportPDF('contractor')">⬇ PDF</button></div>
+    <div class="table-scroll"><table class="data-table"><thead><tr><th>Contractor</th><th>P</th><th>A</th><th>H</th><th>L</th></tr></thead>
+    <tbody>${Object.keys(grouped).map(cid=>{const cn=contractorById(cid); const s=grouped[cid]; return `<tr><td>${cn?cn.name:'—'}</td><td>${s.P}</td><td>${s.A}</td><td>${s.H}</td><td>${s.L}</td></tr>`;}).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">No data</td></tr>'}</tbody></table></div>
+  `;
+}
+function renderLabourReport(body){
+  const opts = `<option value="">Select Labour</option>` + LABOUR.map(l=>`<option value="${l.id}" ${reportState.labourId===l.id?'selected':''}>${l.name} (${l.id})</option>`).join('');
+  const rows = reportState.labourId ? ATTENDANCE.filter(a=>a.labourId===reportState.labourId).sort((a,b)=>a.date.localeCompare(b.date)) : [];
+  body.innerHTML = `
+    <div class="field"><label>Labour</label><select class="select" onchange="reportState.labourId=this.value; render();">${opts}</select></div>
+    ${reportState.labourId ? summaryCards(rows) : ''}
+    ${reportState.labourId ? `<div class="btn-row" style="margin-bottom:12px;"><button class="btn btn-outline" onclick="exportReportExcel('labour')">⬇ Excel</button><button class="btn btn-outline" onclick="exportReportPDF('labour')">⬇ PDF</button></div>` : ''}
+    <div class="table-scroll"><table class="data-table"><thead><tr><th>Date</th><th>Status</th><th>In</th><th>Out</th><th>OT</th><th>Remarks</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><td class="mono">${r.date}</td><td>${STATUS_META[r.status].label}</td><td>${r.inTime||'-'}</td><td>${r.outTime||'-'}</td><td>${r.otHours||'0'}</td><td>${r.remarks||''}</td></tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">Select a labour to view history</td></tr>'}</tbody></table></div>
+  `;
+}
+function renderCategoryReport(body){
+  const rows = ATTENDANCE.filter(a=> reportState.category==='All' || a.category===reportState.category);
+  const grouped = {};
+  rows.forEach(r=>{ grouped[r.category]=grouped[r.category]||{P:0,A:0,H:0,L:0}; grouped[r.category][r.status]++; });
+  body.innerHTML = `
+    <div class="chiprow">
+      <div class="chip ${reportState.category==='All'?'active':''}" onclick="reportState.category='All'; render();">All</div>
+      ${CATEGORIES.map(cat=>`<div class="chip ${reportState.category===cat?'active':''}" onclick="reportState.category='${cat}'; render();">${cat}</div>`).join('')}
+    </div>
+    ${summaryCards(rows)}
+    <div class="btn-row" style="margin-bottom:12px;"><button class="btn btn-outline" onclick="exportReportExcel('category')">⬇ Excel</button><button class="btn btn-outline" onclick="exportReportPDF('category')">⬇ PDF</button></div>
+    <div class="table-scroll"><table class="data-table"><thead><tr><th>Category</th><th>P</th><th>A</th><th>H</th><th>L</th></tr></thead>
+    <tbody>${Object.keys(grouped).map(cat=>{const s=grouped[cat]; return `<tr><td>${cat}</td><td>${s.P}</td><td>${s.A}</td><td>${s.H}</td><td>${s.L}</td></tr>`;}).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">No data</td></tr>'}</tbody></table></div>
+  `;
+}
+function reportTable(rows){
+  return `<div class="table-scroll"><table class="data-table"><thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Contractor</th><th>Status</th><th>In</th><th>Out</th><th>OT</th></tr></thead>
+  <tbody>${rows.map(r=>{ const lb=labourById(r.labourId); if(!lb) return ''; const con=contractorById(r.contractorId);
+    return `<tr><td class="mono">${lb.id}</td><td>${lb.name}</td><td>${lb.category}</td><td>${con?con.name:'—'}</td><td>${STATUS_META[r.status].label}</td><td>${r.inTime||'-'}</td><td>${r.outTime||'-'}</td><td>${r.otHours||'0'}</td></tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">No data</td></tr>'}</tbody></table></div>`;
+}
+
+/* ===================================================================
+   WAGE / SALARY REPORT
+=================================================================== */
+function computeWageRows(){
+  const rows = ATTENDANCE.filter(a=>{
+    if(a.date.slice(0,7)!==wageState.month) return false;
+    if(wageState.contractorId && a.contractorId!==wageState.contractorId) return false;
+    if(wageState.projectId && a.projectId!==wageState.projectId) return false;
+    return true;
+  });
+  const by = {};
+  rows.forEach(r=>{
+    by[r.labourId] = by[r.labourId] || {P:0,A:0,H:0,L:0,OT:0};
+    by[r.labourId][r.status]++;
+    by[r.labourId].OT += parseFloat(r.otHours)||0;
+  });
+  return Object.keys(by).map(lid=>{
+    const lb = labourById(lid); if(!lb) return null;
+    const s = by[lid];
+    const wageRate = lb.wageRate||0;
+    const basePay = (s.P + s.H*0.5) * wageRate;
+    const adjDoc = WAGE_ADJ.find(w=>w.id===(wageState.month+'_'+lid));
+    const otPay = adjDoc ? (parseFloat(adjDoc.otAmount)||0) : 0;
+    return { lb, s, wageRate, basePay, otPay, total: basePay+otPay };
+  }).filter(Boolean).sort((a,b)=>a.lb.name.localeCompare(b.lb.name));
+}
+function saveWageOT(labourId, value){
+  const amount = parseFloat(value);
+  const docId = wageState.month+'_'+labourId;
+  db.collection('wageAdjustments').doc(docId).set({ id: docId, month: wageState.month, labourId, otAmount: isNaN(amount)?0:amount })
+    .catch(err=>showToast('Error: '+err.message));
+}
+function renderWageReport(body){
+  const wageRows = computeWageRows();
+  const grandTotal = wageRows.reduce((sum,r)=>sum+r.total,0);
+  const totalDays = wageRows.reduce((sum,r)=>sum+r.s.P+r.s.H*0.5,0);
+  body.innerHTML = `
+    <div class="card">
+      <div class="field"><label>Month</label><input class="input" type="month" value="${wageState.month}" onchange="wageState.month=this.value; render();"></div>
+      <div class="row2">
+        <div class="field"><label>Project</label><select class="select" onchange="wageState.projectId=this.value; render();">
+          <option value="">All Projects</option>${PROJECTS.map(p=>`<option value="${p.id}" ${wageState.projectId===p.id?'selected':''}>${p.name}</option>`).join('')}</select></div>
+        <div class="field"><label>Contractor</label><select class="select" onchange="wageState.contractorId=this.value; render();">
+          <option value="">All Contractors</option>${CONTRACTORS.map(cn=>`<option value="${cn.id}" ${wageState.contractorId===cn.id?'selected':''}>${cn.name}</option>`).join('')}</select></div>
+      </div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n mono">${wageRows.length}</div><div class="l">Labour Paid</div></div>
+      <div class="stat-card"><div class="n mono">${totalDays.toFixed(1)}</div><div class="l">Total Paid Days</div></div>
+    </div>
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+      <div><b style="font-size:13px;">Total Payable</b><div style="color:var(--text-muted);font-size:11.5px;">${wageState.month} — sabhi labour (OT amount jo aapne bhara)</div></div>
+      <div class="mono" style="font-size:22px;font-weight:700;color:var(--accent);">₹${grandTotal.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+    </div>
+    <div class="btn-row" style="margin-bottom:12px;"><button class="btn btn-outline" onclick="exportWageExcel()">⬇ Excel</button><button class="btn btn-outline" onclick="exportWagePDF()">⬇ PDF</button></div>
+    <div class="table-scroll"><table class="data-table"><thead><tr><th>ID</th><th>Name</th><th>P</th><th>H</th><th>A</th><th>L</th><th>OT hrs</th><th>Rate/day</th><th>Base ₹</th><th>OT ₹ (manual)</th><th>Total ₹</th></tr></thead>
+    <tbody>${wageRows.map(r=>`<tr><td class="mono">${r.lb.id}</td><td>${r.lb.name}</td><td>${r.s.P}</td><td>${r.s.H}</td><td>${r.s.A}</td><td>${r.s.L}</td><td>${r.s.OT.toFixed(1)}</td><td class="mono">${r.wageRate}</td><td class="mono">${r.basePay.toFixed(0)}</td><td><input class="input mono" style="padding:6px 8px;width:80px;font-size:13px;" type="number" min="0" value="${r.otPay||''}" placeholder="0" onchange="saveWageOT('${r.lb.id}', this.value)"></td><td class="mono" style="font-weight:700;">${r.total.toFixed(0)}</td></tr>`).join('') || '<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:20px;">Is mahine ka attendance data nahi hai</td></tr>'}</tbody></table></div>
+    <div style="color:var(--text-muted);font-size:11.5px;margin-top:6px;">Base = (Present + Half-day×0.5) × Daily Rate. OT column mein amount khud type karein — wahi save ho jayega (sabko cloud mein dikhega).</div>
+  `;
+}
+function exportWageExcel(){
+  const wageRows = computeWageRows();
+  if(!wageRows.length){ showToast('No data to export'); return; }
+  const headers = ['Labour ID','Name','Present','Half Day','Absent','Leave','OT Hours','Rate/Day','Base Pay','OT Amount (manual)','Total Payable'];
+  const rows = wageRows.map(r=>[r.lb.id, r.lb.name, r.s.P, r.s.H, r.s.A, r.s.L, r.s.OT.toFixed(1), r.wageRate, r.basePay.toFixed(0), r.otPay.toFixed(0), r.total.toFixed(0)]);
+  exportExcel('Wage_Report_'+wageState.month, headers, rows);
+}
+function exportWagePDF(){
+  const wageRows = computeWageRows();
+  if(!wageRows.length){ showToast('No data to export'); return; }
+  const headers = ['ID','Name','P','H','A','L','OT hrs','Rate','Base','OT Amt','Total'];
+  const rows = wageRows.map(r=>[r.lb.id, r.lb.name, r.s.P, r.s.H, r.s.A, r.s.L, r.s.OT.toFixed(1), r.wageRate, r.basePay.toFixed(0), r.otPay.toFixed(0), r.total.toFixed(0)]);
+  exportPDF('Wage_Report_'+wageState.month, 'Wage / Salary Report — '+wageState.month, headers, rows);
+}
+function exportReportExcel(kind){
+  let headers, rows, name;
+  if(kind==='daily'){ const d=ATTENDANCE.filter(a=>a.date===reportState.date); headers=['ID','Name','Category','Contractor','Status','In','Out','OT']; rows=d.map(r=>{const lb=labourById(r.labourId)||{}; const con=contractorById(r.contractorId)||{}; return [lb.id,lb.name,lb.category,con.name||'',STATUS_META[r.status].label,r.inTime||'',r.outTime||'',r.otHours||'0'];}); name='Daily_Report_'+reportState.date; }
+  else if(kind==='monthly'){ const d=ATTENDANCE.filter(a=>a.date.slice(0,7)===reportState.month); const by={}; d.forEach(r=>{by[r.labourId]=by[r.labourId]||{P:0,A:0,H:0,L:0};by[r.labourId][r.status]++;}); headers=['ID','Name','P','A','H','L']; rows=Object.keys(by).map(lid=>{const lb=labourById(lid)||{}; const s=by[lid]; return [lb.id,lb.name,s.P,s.A,s.H,s.L];}); name='Monthly_Report_'+reportState.month; }
+  else if(kind==='contractor'){ const d=ATTENDANCE.filter(a=>!reportState.contractorId||a.contractorId===reportState.contractorId); const by={}; d.forEach(r=>{by[r.contractorId]=by[r.contractorId]||{P:0,A:0,H:0,L:0};by[r.contractorId][r.status]++;}); headers=['Contractor','P','A','H','L']; rows=Object.keys(by).map(cid=>{const cn=contractorById(cid)||{}; const s=by[cid]; return [cn.name||'',s.P,s.A,s.H,s.L];}); name='Contractorwise_Report'; }
+  else if(kind==='labour'){ const d=reportState.labourId?ATTENDANCE.filter(a=>a.labourId===reportState.labourId):[]; headers=['Date','Status','In','Out','OT','Remarks']; rows=d.map(r=>[r.date,STATUS_META[r.status].label,r.inTime||'',r.outTime||'',r.otHours||'0',r.remarks||'']); name='Labourwise_Report'; }
+  else { const d=ATTENDANCE.filter(a=>reportState.category==='All'||a.category===reportState.category); const by={}; d.forEach(r=>{by[r.category]=by[r.category]||{P:0,A:0,H:0,L:0};by[r.category][r.status]++;}); headers=['Category','P','A','H','L']; rows=Object.keys(by).map(cat=>{const s=by[cat]; return [cat,s.P,s.A,s.H,s.L];}); name='Categorywise_Report'; }
+  if(!rows.length){ showToast('No data to export'); return; }
+  exportExcel(name, headers, rows);
+}
+function exportReportPDF(kind){
+  let headers, rows, name, title;
+  if(kind==='daily'){ const d=ATTENDANCE.filter(a=>a.date===reportState.date); headers=['ID','Name','Category','Status','In','Out','OT']; rows=d.map(r=>{const lb=labourById(r.labourId)||{}; return [lb.id,lb.name,lb.category,STATUS_META[r.status].label,r.inTime||'',r.outTime||'',r.otHours||'0'];}); name='Daily_Report_'+reportState.date; title='Daily Attendance Report — '+fmtDate(reportState.date); }
+  else if(kind==='monthly'){ const d=ATTENDANCE.filter(a=>a.date.slice(0,7)===reportState.month); const by={}; d.forEach(r=>{by[r.labourId]=by[r.labourId]||{P:0,A:0,H:0,L:0};by[r.labourId][r.status]++;}); headers=['ID','Name','P','A','H','L']; rows=Object.keys(by).map(lid=>{const lb=labourById(lid)||{}; const s=by[lid]; return [lb.id,lb.name,s.P,s.A,s.H,s.L];}); name='Monthly_Report_'+reportState.month; title='Monthly Attendance Report — '+reportState.month; }
+  else if(kind==='contractor'){ const d=ATTENDANCE.filter(a=>!reportState.contractorId||a.contractorId===reportState.contractorId); const by={}; d.forEach(r=>{by[r.contractorId]=by[r.contractorId]||{P:0,A:0,H:0,L:0};by[r.contractorId][r.status]++;}); headers=['Contractor','P','A','H','L']; rows=Object.keys(by).map(cid=>{const cn=contractorById(cid)||{}; const s=by[cid]; return [cn.name||'',s.P,s.A,s.H,s.L];}); name='Contractorwise_Report'; title='Contractor-wise Attendance Report'; }
+  else if(kind==='labour'){ const lb=labourById(reportState.labourId); const d=reportState.labourId?ATTENDANCE.filter(a=>a.labourId===reportState.labourId):[]; headers=['Date','Status','In','Out','OT','Remarks']; rows=d.map(r=>[r.date,STATUS_META[r.status].label,r.inTime||'',r.outTime||'',r.otHours||'0',r.remarks||'']); name='Labourwise_Report'; title='Labour Attendance History — '+(lb?lb.name:''); }
+  else { const d=ATTENDANCE.filter(a=>reportState.category==='All'||a.category===reportState.category); const by={}; d.forEach(r=>{by[r.category]=by[r.category]||{P:0,A:0,H:0,L:0};by[r.category][r.status]++;}); headers=['Category','P','A','H','L']; rows=Object.keys(by).map(cat=>{const s=by[cat]; return [cat,s.P,s.A,s.H,s.L];}); name='Categorywise_Report'; title='Category-wise Attendance Report'; }
+  if(!rows.length){ showToast('No data to export'); return; }
+  exportPDF(name, title, headers, rows);
+}
+
+/* ===================================================================
+   EXPORT HELPERS
+=================================================================== */
+function exportExcel(filename, headers, rows){
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Report');
+  XLSX.writeFile(wb, filename+'.xlsx');
+  showToast('Excel file downloaded');
+}
+function exportPDF(filename, title, headers, rows){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(14); doc.text(title, 14, 15);
+  doc.setFontSize(9); doc.setTextColor(120); doc.text('SENTU Attendance', 14, 21);
+  doc.autoTable({ head:[headers], body:rows, startY:26, styles:{fontSize:8}, headStyles:{fillColor:[224,137,27]} });
+  doc.save(filename+'.pdf');
+  showToast('PDF file downloaded');
+}
+
+/* ===================================================================
+   USER APPROVALS (Admin only)
+=================================================================== */
+async function renderApprovals(c){
+  setTopbar('User Approvals', '');
+  if(SETTINGS.role!=='Admin'){
+    c.innerHTML = `<div class="empty-state"><div class="ic">🔒</div><b>Admin only</b><p>Only Admin can approve or reject user requests.</p></div>`;
+    return;
+  }
+  c.innerHTML = `<div class="section-label">Pending Requests</div><div id="pending-users"><div class="empty-state"><b>Loading…</b></div></div>
+    <div class="section-label" style="margin-top:16px;">Approved Users</div><div id="approved-users"></div>`;
+  try{
+    const snap = await db.collection('users').get();
+    const all = []; snap.forEach(d=>all.push({id:d.id, ...d.data()}));
+    const pending = all.filter(u=>u.status==='pending');
+    const approved = all.filter(u=>u.status==='approved');
+
+    const pendingHolder = document.getElementById('pending-users');
+    pendingHolder.innerHTML = pending.length ? pending.map(u=>`
+      <div class="list-row">
+        <div class="avatar">${initials(u.name)}</div>
+        <div class="meta"><b>${u.name}</b><div class="sub">${u.email} · wants: ${u.requestedRole||u.role}</div></div>
+        <div class="row-actions">
+          <div class="icon-btn" style="color:var(--success);border-color:rgba(63,166,107,.4)" onclick="approveUser('${u.id}','${u.requestedRole||u.role}')">✓</div>
+          <div class="icon-btn danger" onclick="rejectUser('${u.id}')">✕</div>
+        </div>
+      </div>`).join('') : `<div class="empty-state"><div class="ic">✅</div><b>No pending requests</b><p>All caught up.</p></div>`;
+
+    const approvedHolder = document.getElementById('approved-users');
+    approvedHolder.innerHTML = approved.length ? approved.map(u=>`
+      <div class="list-row">
+        <div class="avatar">${initials(u.name)}</div>
+        <div class="meta"><b>${u.name}</b><div class="sub">${u.email} · ${u.role}</div></div>
+        ${u.id!==SETTINGS.uid ? `<div class="row-actions"><div class="icon-btn danger" onclick="revokeUser('${u.id}')">Revoke</div></div>` : `<span class="badge">You</span>`}
+      </div>`).join('') : `<div class="empty-state"><p>No approved users yet.</p></div>`;
+  }catch(e){
+    document.getElementById('pending-users').innerHTML = `<div class="empty-state"><b>Could not load</b><p>Check your internet connection.</p></div>`;
+  }
+}
+async function approveUser(uid, role){
+  await db.collection('users').doc(uid).update({status:'approved', role});
+  showToast('User approved'); render();
+}
+async function rejectUser(uid){
+  if(!confirm('Reject this request? The person can sign up again later.')) return;
+  await db.collection('users').doc(uid).delete();
+  showToast('Request rejected'); render();
+}
+async function revokeUser(uid){
+  if(!confirm('Revoke this user\'s access? They will be logged out and need Admin approval again.')) return;
+  await db.collection('users').doc(uid).update({status:'pending'});
+  showToast('Access revoked'); render();
+}
+
+/* ===================================================================
+   SETTINGS
+=================================================================== */
+function renderSettings(c){
+  setTopbar('Settings', '');
+  c.innerHTML = `
+    <div class="card">
+      <div class="setting-row"><div><b>Dark Mode</b><div class="d">Reduce glare on-site, save battery</div></div>
+        <label class="switch"><input type="checkbox" ${SETTINGS.theme!=='light'?'checked':''} onchange="SETTINGS.theme=this.checked?'dark':'light'; persist('settings'); applyTheme();"><span class="track"></span></label>
+      </div>
+      <div class="setting-row"><div><b>Logged in as</b><div class="d">${SETTINGS.userName} · ${SETTINGS.role}</div></div>
+        <button class="btn btn-sm" onclick="logout()">Switch</button></div>
+    </div>
+    <div class="section-label">Data Management</div>
+    <div class="card">
+      <div class="setting-row"><div><b>Backup Data</b><div class="d">Download all records as a JSON file</div></div>
+        <button class="btn btn-sm btn-outline" onclick="backupData()">Backup</button></div>
+      <div class="setting-row"><div><b>Restore Data</b><div class="d">Import a previously saved backup</div></div>
+        <button class="btn btn-sm btn-outline" onclick="document.getElementById('restore-file').click()">Restore</button></div>
+      <div class="setting-row"><div><b>Clear All Data</b><div class="d" style="color:var(--danger)">This cannot be undone</div></div>
+        <button class="btn btn-sm btn-danger" onclick="clearAllData()">Clear</button></div>
+    </div>
+    <input type="file" id="restore-file" accept="application/json" class="hidden" onchange="restoreData(this.files[0])">
+    <div class="section-label">Cloud Sync</div>
+    <div class="card">
+      <div class="setting-row"><div><b>Cloud Backup</b><div class="d">Every entry is saved live to Google Firebase — safe even if this phone is lost or reset</div></div><span class="badge status-Active">Active</span></div>
+    </div>
+    <div class="section-label">Coming Soon</div>
+    <div class="card">
+      ${['QR Code Attendance','Fingerprint Attendance','Face Recognition','GPS Location Tagging','Offline Mode with Auto Sync','WhatsApp Report Sharing'].map(f=>`
+        <div class="setting-row"><div><b>${f}</b></div><span class="badge">Planned</span></div>`).join('')}
+    </div>
+    <div style="text-align:center;color:var(--text-muted);font-size:11.5px;margin-top:10px;">SENTU Attendance · v1.0</div>
+  `;
+}
+function backupData(){
+  const data = { LABOUR, CONTRACTORS, PROJECTS, ATTENDANCE, exportedAt:new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='CLA_Backup_'+todayISO()+'.json'; a.click();
+  showToast('Backup downloaded');
+}
+async function wipeCollection(col){
+  const snap = await db.collection(col).get();
+  const batch = db.batch();
+  snap.docs.forEach(d=>batch.delete(d.ref));
+  await batch.commit();
+}
+async function writeCollection(col, items){
+  const batch = db.batch();
+  (items||[]).forEach(item=>{ if(item && item.id) batch.set(db.collection(col).doc(item.id), item); });
+  await batch.commit();
+}
+function restoreData(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e)=>{
+    try{
+      const data = JSON.parse(e.target.result);
+      if(!confirm('This will replace all current data on every device. Continue?')) return;
+      showToast('Restoring… please wait');
+      await wipeCollection('labour'); await wipeCollection('contractors'); await wipeCollection('projects'); await wipeCollection('attendance');
+      await writeCollection('labour', data.LABOUR);
+      await writeCollection('contractors', data.CONTRACTORS);
+      await writeCollection('projects', data.PROJECTS);
+      await writeCollection('attendance', data.ATTENDANCE);
+      showToast('Data restored successfully');
+    }catch(err){ showToast('Restore failed: '+err.message); }
+  };
+  reader.readAsText(file);
+}
+async function clearAllData(){
+  if(!confirm('Delete ALL labour, contractor, project and attendance data for everyone? This cannot be undone.')) return;
+  if(!confirm('Are you absolutely sure? This affects every device using this app.')) return;
+  showToast('Clearing… please wait');
+  await wipeCollection('labour'); await wipeCollection('contractors'); await wipeCollection('projects'); await wipeCollection('attendance');
+  showToast('All data cleared'); navTo('dashboard');
+}
+
+/* ===================================================================
+   INIT
+=================================================================== */
+// register service worker for offline/PWA install
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+</script>
+</body>
+</html>
